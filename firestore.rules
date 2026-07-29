@@ -1,0 +1,47 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    match /users/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+      // Admin creates the user doc right after creating the Auth account.
+      allow create: if isAdmin();
+      // Members may update their own doc (e.g. theme color, push tokens) but
+      // never their own role - only an admin can grant/revoke admin.
+      allow update: if isAdmin() ||
+        (isSelf(uid) && !('role' in request.resource.data.diff(resource.data).affectedKeys()));
+      allow delete: if isAdmin();
+    }
+
+    match /habits/{habitId} {
+      allow read: if isSignedIn() && (resource.data.owner_uid == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    match /entries/{entryId} {
+      allow read: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
+      // Entries belong to whoever logged them - not even the admin edits
+      // someone else's check-offs, only views them.
+      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.user_id == request.auth.uid;
+    }
+
+    match /rewards/{rewardId} {
+      allow read: if isSignedIn() && (resource.data.owner_uid == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+  }
+}
