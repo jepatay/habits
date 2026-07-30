@@ -14,6 +14,7 @@ import {
   serverTimestamp,
   arrayUnion,
   arrayRemove,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from './config';
 
@@ -73,10 +74,10 @@ export async function getHabit(habitId) {
 export async function createHabit(habit) {
   // Imports back-date createdAt to the earliest historical entry so streak/stat
   // calculations (which treat createdAt as the walk start) still cover that history.
-  const { createdAt, ...rest } = habit;
+  const { createdAt, archived, ...rest } = habit;
   const ref = await addDoc(collection(db, 'habits'), {
     ...rest,
-    archived: false,
+    archived: archived ?? false,
     createdAt: createdAt instanceof Date ? createdAt : serverTimestamp(),
   });
   return ref.id;
@@ -127,6 +128,32 @@ export async function setEntry(habitId, userId, date, value) {
     value,
     loggedAt: serverTimestamp(),
   });
+}
+
+// Bulk imports can mean thousands of entries - writing them one at a time
+// (a round trip each) is impractically slow. Firestore batches cap at 500
+// operations, so this chunks just under that and commits in parallel.
+export async function setEntriesBatch(userId, entries) {
+  const CHUNK_SIZE = 450;
+  const chunks = [];
+  for (let i = 0; i < entries.length; i += CHUNK_SIZE) chunks.push(entries.slice(i, i + CHUNK_SIZE));
+
+  await Promise.all(
+    chunks.map((chunk) => {
+      const batch = writeBatch(db);
+      for (const { habitId, date, value } of chunk) {
+        const id = entryDocId(habitId, userId, date);
+        batch.set(doc(db, 'entries', id), {
+          habit_id: habitId,
+          user_id: userId,
+          date,
+          value,
+          loggedAt: serverTimestamp(),
+        });
+      }
+      return batch.commit();
+    }),
+  );
 }
 
 export async function deleteEntry(habitId, userId, date) {

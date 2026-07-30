@@ -9,6 +9,7 @@ import {
   importGenericRecords,
   importNativeFormat,
 } from '../utils/exportImport';
+import { isLoopExportFile, parseLoopExport, importLoopExport } from '../utils/loopImport';
 import { subscribeHabits } from '../firebase/firestore';
 
 export default function ImportExportPage() {
@@ -42,6 +43,18 @@ export default function ImportExportPage() {
     if (!file) return;
     setError(null);
     setResult(null);
+
+    if (isLoopExportFile(file)) {
+      try {
+        const parsed = await parseLoopExport(file);
+        setRawData(parsed);
+        setShape('loop');
+      } catch (err) {
+        setError(err.message || 'Could not read that zip as a Loop Habit Tracker export.');
+      }
+      return;
+    }
+
     try {
       const text = await file.text();
       const data = JSON.parse(text);
@@ -85,7 +98,10 @@ export default function ImportExportPage() {
     setImporting(true);
     setError(null);
     try {
-      if (shape === 'native') {
+      if (shape === 'loop') {
+        const res = await importLoopExport(viewedUid, rawData);
+        setResult({ created: res.habitsCreated, imported: res.entriesImported, skipped: 0 });
+      } else if (shape === 'native') {
         const res = await importNativeFormat(viewedUid, rawData);
         setResult(res);
       } else if (shape === 'records') {
@@ -126,12 +142,32 @@ export default function ImportExportPage() {
       <div className="card">
         <p style={{ margin: '0 0 8px', fontWeight: 700 }}>Import historical data</p>
         <p style={{ margin: '0 0 12px', fontSize: '0.85rem', color: 'var(--text-dim)' }}>
-          Upload an export from your previous app. If it's not in this app's format, you'll get a chance to map
-          its fields below.
+          Upload a Loop Habit Tracker export (.zip) or a JSON backup. Anything else gets a field-mapping step
+          below.
         </p>
-        <input type="file" accept="application/json" onChange={handleFile} />
+        <input type="file" accept="application/json,.zip,application/zip" onChange={handleFile} />
 
         {error && <div className="banner error" style={{ marginTop: 12 }}>{error}</div>}
+
+        {shape === 'loop' && (
+          <div style={{ marginTop: 16 }}>
+            <p style={{ fontSize: '0.85rem' }}>
+              Recognized as a Loop Habit Tracker export: {rawData.habits.length} habits, {rawData.totalEntries}{' '}
+              check-ins.
+            </p>
+            <ul style={{ fontSize: '0.8rem', color: 'var(--text-dim)', paddingLeft: 18, margin: '8px 0' }}>
+              {rawData.habits.map((h) => (
+                <li key={h.position}>
+                  {h.name || `(habit ${h.position})`} - {h.entries.length} check-ins
+                  {h.archived ? ' (archived)' : ''}
+                </li>
+              ))}
+            </ul>
+            <button className="btn" onClick={handleImport} disabled={importing}>
+              {importing ? 'Importing…' : 'Import'}
+            </button>
+          </div>
+        )}
 
         {shape === 'native' && (
           <div style={{ marginTop: 16 }}>
