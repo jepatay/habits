@@ -14,6 +14,7 @@ export default function AddUserForm({ onCreated }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [created, setCreated] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -23,6 +24,7 @@ export default function AddUserForm({ onCreated }) {
       const color = HABIT_COLORS[Math.floor(Math.random() * HABIT_COLORS.length)];
       await adminCreateUser({ name: name.trim(), email: email.trim(), password, role, colorTheme: color });
       setCreated({ email, password });
+      setCopied(false);
       setName('');
       setEmail('');
       setPassword(randomPassword());
@@ -34,14 +36,41 @@ export default function AddUserForm({ onCreated }) {
     }
   }
 
+  function inviteText() {
+    return `You've been invited to Habits: ${window.location.origin}\nEmail: ${created.email}\nPassword: ${created.password}`;
+  }
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(inviteText());
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
   return (
     <form onSubmit={handleSubmit} className="card">
       <p style={{ margin: '0 0 4px', fontWeight: 700 }}>Add user</p>
 
       {created && (
         <div className="banner success">
-          Created {created.email}. Temporary password: <code>{created.password}</code> — share it securely and
-          have them change it after first login.
+          <p style={{ margin: '0 0 8px' }}>
+            Created {created.email} — have them change the password after first login.
+          </p>
+          <pre
+            style={{
+              margin: '0 0 8px',
+              padding: 10,
+              background: 'var(--bg-elevated)',
+              borderRadius: 8,
+              fontSize: '0.8rem',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }}
+          >
+            {inviteText()}
+          </pre>
+          <button type="button" className="btn secondary" onClick={handleCopy}>
+            {copied ? '✓ Copied' : '📋 Copy invite'}
+          </button>
         </div>
       )}
       {error && <div className="banner error">{error}</div>}
