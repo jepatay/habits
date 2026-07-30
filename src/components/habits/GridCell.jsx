@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function GridCell({ habit, entry, editable, onChange }) {
+export default function GridCell({ habit, entry, editable, size = 28, onChange }) {
   const [editingValue, setEditingValue] = useState(null);
 
   if (habit.type === 'measurable') {
@@ -16,7 +16,7 @@ export default function GridCell({ habit, entry, editable, onChange }) {
             if (e.key === 'Enter') commitMeasurable();
             if (e.key === 'Escape') setEditingValue(null);
           }}
-          style={{ width: 56, padding: '4px 6px', textAlign: 'center' }}
+          style={{ width: size * 1.4, padding: '4px 6px', textAlign: 'center' }}
         />
       );
     }
@@ -28,7 +28,7 @@ export default function GridCell({ habit, entry, editable, onChange }) {
         className="grid-cell"
         disabled={!editable}
         onClick={() => editable && setEditingValue(String(value ?? ''))}
-        style={cellStyle(value != null, hit, habit.color)}
+        style={cellStyle(value != null, hit, habit.color, size)}
       >
         {value != null ? value : '—'}
       </button>
@@ -58,24 +58,25 @@ export default function GridCell({ habit, entry, editable, onChange }) {
       className="grid-cell"
       disabled={!editable}
       onClick={handleClick}
-      style={cellStyle(state !== 'none', state === 'success', habit.color)}
+      style={cellStyle(state !== 'none', state === 'success', habit.color, size)}
     >
       {label}
     </button>
   );
 }
 
-function cellStyle(hasValue, success, color) {
+function cellStyle(hasValue, success, color, size) {
   return {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+    width: size,
+    height: size,
+    borderRadius: Math.round(size * 0.2),
     border: `1px solid ${hasValue ? 'transparent' : 'var(--border)'}`,
     background: hasValue ? (success ? color : 'var(--danger)') : 'transparent',
     color: hasValue ? '#fff' : 'var(--text-faint)',
     fontWeight: 700,
-    fontSize: '0.9rem',
+    fontSize: size < 32 ? '0.62rem' : '0.9rem',
     cursor: 'pointer',
     flexShrink: 0,
+    padding: 0,
   };
 }

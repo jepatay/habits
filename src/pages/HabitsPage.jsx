@@ -10,7 +10,7 @@ import {
   setEntry,
   deleteEntry,
 } from '../firebase/firestore';
-import { addDays, lastNDays, todayKey } from '../utils/dates';
+import { lastNDays } from '../utils/dates';
 import HabitGrid from '../components/habits/HabitGrid';
 import HabitForm from '../components/habits/HabitForm';
 import Modal from '../components/common/Modal';
@@ -18,12 +18,16 @@ import Spinner from '../components/common/Spinner';
 
 const WINDOW_SIZE = 10;
 
+function habitOrderKey(habit) {
+  if (habit.order != null) return habit.order;
+  return habit.createdAt?.toMillis ? habit.createdAt.toMillis() : 0;
+}
+
 export default function HabitsPage() {
   const { user, isAdmin } = useAuth();
   const { viewedUid, isViewingSelf, users } = useViewedUser();
   const [habits, setHabits] = useState(null);
   const [entries, setEntries] = useState([]);
-  const [windowEnd, setWindowEnd] = useState(todayKey());
   const [showForm, setShowForm] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
 
@@ -39,7 +43,22 @@ export default function HabitsPage() {
     return subscribeEntriesForUser(viewedUid, setEntries);
   }, [viewedUid]);
 
-  const dateKeys = useMemo(() => lastNDays(WINDOW_SIZE, windowEnd), [windowEnd]);
+  // Keeps the open edit modal's habit in sync with live updates (e.g. after
+  // a move-up/move-down reorder), so a second click reorders again instead
+  // of replaying a stale order value.
+  useEffect(() => {
+    if (!habits) return;
+    setEditingHabit((prev) => (prev ? habits.find((h) => h.id === prev.id) || prev : prev));
+  }, [habits]);
+
+  // Most recent day first (leftmost) - on a narrow phone screen the columns
+  // that scroll off to the right are the ones you'd otherwise never see.
+  const dateKeys = useMemo(() => [...lastNDays(WINDOW_SIZE)].reverse(), []);
+
+  const sortedHabits = useMemo(() => {
+    if (!habits) return habits;
+    return [...habits].sort((a, b) => habitOrderKey(a) - habitOrderKey(b));
+  }, [habits]);
 
   const entriesByHabit = useMemo(() => {
     const map = new Map();
@@ -62,7 +81,8 @@ export default function HabitsPage() {
     if (editingHabit) {
       await updateHabit(editingHabit.id, data);
     } else {
-      await createHabit(data);
+      const maxOrder = sortedHabits?.length ? Math.max(...sortedHabits.map(habitOrderKey)) : -1;
+      await createHabit({ ...data, order: maxOrder + 1 });
     }
     setShowForm(false);
     setEditingHabit(null);
@@ -72,6 +92,18 @@ export default function HabitsPage() {
     await archiveHabit(habit.id);
     setShowForm(false);
     setEditingHabit(null);
+  }
+
+  async function handleMove(habit, direction) {
+    const list = sortedHabits;
+    const index = list.findIndex((h) => h.id === habit.id);
+    const otherIndex = index + direction;
+    if (otherIndex < 0 || otherIndex >= list.length) return;
+    const other = list[otherIndex];
+    await Promise.all([
+      updateHabit(habit.id, { order: habitOrderKey(other) }),
+      updateHabit(other.id, { order: habitOrderKey(habit) }),
+    ]);
   }
 
   // Habits are admin-managed only (create/edit/archive); members just check
@@ -95,58 +127,29 @@ export default function HabitsPage() {
         )}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <button className="btn ghost" onClick={() => setWindowEnd((d) => addDays(d, -WINDOW_SIZE))}>
-          ← Earlier
-        </button>
-        <button className="btn ghost" onClick={() => setWindowEnd(todayKey())}>
-          Today
-        </button>
-        <button
-          className="btn ghost"
-          disabled={windowEnd === todayKey()}
-          onClick={() => setWindowEnd((d) => addDays(d, WINDOW_SIZE))}
-        >
-          Later →
-        </button>
-      </div>
-
-      {habits === null ? (
+      {sortedHabits === null ? (
         <Spinner />
-      ) : habits.length === 0 ? (
+      ) : sortedHabits.length === 0 ? (
         <div className="empty-state">No habits yet. {canManageHabits && 'Tap "+ Add" to create your first one.'}</div>
       ) : (
         <HabitGrid
-          habits={habits}
+          habits={sortedHabits}
           entriesByHabit={entriesByHabit}
           dateKeys={dateKeys}
           editable={isViewingSelf}
+          canManageHabits={canManageHabits}
           onCellChange={handleCellChange}
+          onEditHabit={(habit) => {
+            setEditingHabit(habit);
+            setShowForm(true);
+          }}
         />
       )}
 
-      {isAdmin && habits && habits.length > 0 && !isViewingSelf && (
+      {isAdmin && sortedHabits && sortedHabits.length > 0 && !isViewingSelf && (
         <p style={{ color: 'var(--text-faint)', fontSize: '0.8rem', marginTop: 12 }}>
           Viewing {users.find((u) => u.id === viewedUid)?.name}'s data (read-only).
         </p>
-      )}
-
-      {canManageHabits && habits && habits.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          {habits.map((h) => (
-            <button
-              key={h.id}
-              className="btn secondary"
-              style={{ marginRight: 8, marginBottom: 8, fontSize: '0.8rem', padding: '6px 10px' }}
-              onClick={() => {
-                setEditingHabit(h);
-                setShowForm(true);
-              }}
-            >
-              Edit "{h.name}"
-            </button>
-          ))}
-        </div>
       )}
 
       {showForm && (
@@ -168,6 +171,8 @@ export default function HabitsPage() {
               setEditingHabit(null);
             }}
             onDelete={handleArchive}
+            onMoveUp={editingHabit ? () => handleMove(editingHabit, -1) : undefined}
+            onMoveDown={editingHabit ? () => handleMove(editingHabit, 1) : undefined}
           />
         </Modal>
       )}

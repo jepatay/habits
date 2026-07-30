@@ -1,24 +1,37 @@
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import GridCell from './GridCell';
 import { parseDateKey, todayKey } from '../../utils/dates';
 
-export default function HabitGrid({ habits, entriesByHabit, dateKeys, editable, onCellChange }) {
+const CELL_SIZE = 28; // 40 * 0.7, per request to shrink the grid boxes
+const CELL_GAP = 3;
+const NAME_COL_WIDTH = 100;
+
+export default function HabitGrid({
+  habits,
+  entriesByHabit,
+  dateKeys,
+  editable,
+  canManageHabits,
+  onCellChange,
+  onEditHabit,
+}) {
   const today = todayKey();
+  const navigate = useNavigate();
 
   return (
     <div style={{ overflowX: 'auto' }}>
       <div style={{ display: 'inline-block', minWidth: '100%' }}>
-        <div style={{ display: 'flex', paddingLeft: 132 }}>
+        <div style={{ display: 'flex', gap: CELL_GAP, paddingLeft: NAME_COL_WIDTH }}>
           {dateKeys.map((key) => {
             const d = parseDateKey(key);
             return (
               <div
                 key={key}
                 style={{
-                  width: 40,
+                  width: CELL_SIZE,
                   flexShrink: 0,
                   textAlign: 'center',
-                  fontSize: '0.7rem',
+                  fontSize: '0.65rem',
                   color: key === today ? 'var(--accent)' : 'var(--text-faint)',
                   fontWeight: key === today ? 700 : 400,
                 }}
@@ -31,48 +44,71 @@ export default function HabitGrid({ habits, entriesByHabit, dateKeys, editable, 
         </div>
 
         {habits.map((habit) => (
-          <div key={habit.id} style={{ display: 'flex', alignItems: 'center', marginTop: 8 }}>
-            <Link
-              to={`/habits/${habit.id}`}
+          <div key={habit.id} style={{ display: 'flex', alignItems: 'center', marginTop: 6 }}>
+            <div
               style={{
-                width: 132,
+                width: NAME_COL_WIDTH,
                 flexShrink: 0,
-                paddingRight: 8,
+                paddingRight: 6,
                 display: 'flex',
                 alignItems: 'center',
-                gap: 6,
-                textDecoration: 'none',
-                color: 'var(--text)',
+                gap: 5,
               }}
             >
               <span
                 style={{
-                  width: 8,
-                  height: 8,
+                  width: 7,
+                  height: 7,
                   borderRadius: '50%',
                   background: habit.color,
                   flexShrink: 0,
                 }}
               />
               <span
+                role="button"
+                tabIndex={0}
+                onClick={() => navigate(`/habits/${habit.id}`)}
+                onKeyDown={(e) => e.key === 'Enter' && navigate(`/habits/${habit.id}`)}
                 style={{
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
-                  fontSize: '0.85rem',
+                  fontSize: '0.78rem',
+                  cursor: 'pointer',
+                  flex: 1,
+                  minWidth: 0,
                 }}
                 title={habit.name}
               >
                 {habit.name}
               </span>
-            </Link>
-            <div style={{ display: 'flex', gap: 4 }}>
+              {canManageHabits && (
+                <button
+                  type="button"
+                  onClick={() => onEditHabit(habit)}
+                  aria-label={`Edit ${habit.name}`}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-faint)',
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    padding: 2,
+                  }}
+                >
+                  ✎
+                </button>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: CELL_GAP }}>
               {dateKeys.map((key) => (
                 <GridCell
                   key={key}
                   habit={habit}
                   entry={entriesByHabit.get(habit.id)?.get(key)}
                   editable={editable}
+                  size={CELL_SIZE}
                   onChange={(value) => onCellChange(habit, key, value)}
                 />
               ))}

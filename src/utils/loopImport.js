@@ -139,6 +139,7 @@ export async function importLoopExport(uid, parsed) {
       notes: 'Imported from Loop Habit Tracker.',
       owner_uid: uid,
       archived: habit.archived,
+      order: Number(habit.position),
       createdAt: new Date(earliestDate),
     });
     habitsCreated += 1;
