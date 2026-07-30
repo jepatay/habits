@@ -260,3 +260,13 @@ label {
 .user-switcher select {
   width: auto;
 }
+
+.hide-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* old Edge */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  height: 0;
+  background: transparent;
+}

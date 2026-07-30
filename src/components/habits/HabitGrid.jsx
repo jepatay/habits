@@ -19,7 +19,7 @@ export default function HabitGrid({
   const navigate = useNavigate();
 
   return (
-    <div style={{ overflowX: 'auto' }}>
+    <div className="hide-scrollbar" style={{ overflowX: 'auto' }}>
       <div style={{ display: 'inline-block', minWidth: '100%' }}>
         <div style={{ display: 'flex', gap: CELL_GAP, paddingLeft: NAME_COL_WIDTH }}>
           {dateKeys.map((key) => {

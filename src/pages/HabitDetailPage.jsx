@@ -32,7 +32,7 @@ export default function HabitDetailPage() {
   const quarterly = useMemo(() => (habit ? quarterlyScoreSeries(habit, entries) : []), [habit, entries]);
   const weekday = useMemo(() => (habit ? weekdayScores(habit, entries) : []), [habit, entries]);
   const months = useMemo(() => (habit ? calendarMonths(habit, entries) : []), [habit, entries]);
-  const bestStreaks = useMemo(() => (habit ? bestStreaksList(habit, entries) : []), [habit, entries]);
+  const bestStreaks = useMemo(() => (habit ? bestStreaksList(habit, entries, 10) : []), [habit, entries]);
 
   if (!habit) return <Spinner />;
 

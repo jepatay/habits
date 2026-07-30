@@ -165,7 +165,6 @@ export function calendarMonths(habit, entries, monthsBack = 6) {
     }
     months.push({
       label: d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-      firstWeekday: new Date(year, month, 1).getDay(),
       cells,
     });
   }
