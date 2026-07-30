@@ -4,7 +4,7 @@ import { parseDateKey, todayKey } from '../../utils/dates';
 
 const CELL_SIZE = 28; // 40 * 0.7, per request to shrink the grid boxes
 const CELL_GAP = 3;
-const NAME_COL_WIDTH = 100;
+const NAME_COL_WIDTH = 200;
 
 export default function HabitGrid({
   habits,
