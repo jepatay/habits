@@ -112,12 +112,6 @@ export default function HabitsPage() {
         )}
       </div>
 
-      {canManageHabits && sortedHabits && sortedHabits.length > 1 && (
-        <p style={{ color: 'var(--text-faint)', fontSize: '0.75rem', margin: '0 0 8px' }}>
-          Drag ☰ to reorder habits.
-        </p>
-      )}
-
       {sortedHabits === null ? (
         <Spinner />
       ) : sortedHabits.length === 0 ? (

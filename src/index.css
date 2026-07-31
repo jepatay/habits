@@ -157,6 +157,34 @@ label {
   margin-top: 4px;
 }
 
+/* Edit/create dialogs (habit, reward) felt oversized next to the rest of
+   the app's tighter type scale - shrink text, spacing and controls here. */
+.modal-compact label {
+  font-size: 0.76rem;
+  margin-top: 8px;
+  margin-bottom: 3px;
+}
+
+.modal-compact input[type='text'],
+.modal-compact input[type='email'],
+.modal-compact input[type='password'],
+.modal-compact input[type='number'],
+.modal-compact input[type='time'],
+.modal-compact select,
+.modal-compact textarea {
+  padding: 7px 10px;
+  font-size: 0.82rem;
+}
+
+.modal-compact .btn {
+  padding: 7px 12px;
+  font-size: 0.85rem;
+}
+
+.modal-compact p {
+  font-size: 0.8rem;
+}
+
 .banner {
   border-radius: var(--radius);
   padding: 12px 14px;

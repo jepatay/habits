@@ -26,12 +26,14 @@ export default function Modal({ title, onClose, children, footer }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: '1.1rem' }}>{title}</h2>
+          <h2 style={{ margin: 0, fontSize: '1rem' }}>{title}</h2>
           <button className="btn ghost" onClick={onClose} aria-label="Close">
             ✕
           </button>
         </div>
-        <div style={{ marginTop: 12 }}>{children}</div>
+        <div className="modal-compact" style={{ marginTop: 10 }}>
+          {children}
+        </div>
         {footer && <div style={{ marginTop: 16 }}>{footer}</div>}
       </div>
     </div>
