@@ -1,4 +1,5 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
@@ -62,4 +63,34 @@ exports.habitReminders = onSchedule('0 * * * *', async () => {
       });
     }
   }
+});
+
+// Lets a signed-in user verify the full push pipeline (token -> Firestore ->
+// this function -> FCM -> browser) immediately, rather than waiting for a
+// habit reminder's scheduled hour to come around.
+exports.sendTestNotification = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign in first.');
+  }
+
+  const userDoc = await db.collection('users').doc(request.auth.uid).get();
+  const tokens = userDoc.data()?.pushTokens || [];
+  if (!tokens.length) {
+    throw new HttpsError('failed-precondition', 'No push token registered on this device yet.');
+  }
+
+  const response = await getMessaging().sendEachForMulticast({
+    tokens,
+    notification: {
+      title: 'Test notification',
+      body: 'Push notifications are working.',
+    },
+  });
+
+  if (response.successCount === 0) {
+    const reason = response.responses.find((r) => r.error)?.error?.message || 'Unknown error';
+    throw new HttpsError('internal', `Delivery failed: ${reason}`);
+  }
+
+  return { successCount: response.successCount, failureCount: response.failureCount };
 });

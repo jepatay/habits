@@ -6,6 +6,7 @@ import {
   persistentMultipleTabManager,
   connectFirestoreEmulator,
 } from 'firebase/firestore';
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -29,7 +30,10 @@ export const db = initializeFirestore(app, {
   localCache: useEmulator ? undefined : persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 });
 
+export const functions = getFunctions(app);
+
 if (useEmulator) {
   connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
   connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  connectFunctionsEmulator(functions, '127.0.0.1', 5001);
 }

@@ -1,5 +1,6 @@
 import { getMessaging, getToken, deleteToken, isSupported, onMessage } from 'firebase/messaging';
-import { app } from './config';
+import { httpsCallable } from 'firebase/functions';
+import { app, functions } from './config';
 
 let messagingInstance = null;
 
@@ -34,4 +35,13 @@ export async function listenForegroundMessages(callback) {
   const messaging = await getMessagingIfSupported();
   if (!messaging) return () => {};
   return onMessage(messaging, callback);
+}
+
+// Verifies the whole push pipeline (token -> Firestore -> Cloud Function ->
+// FCM -> browser) on demand, instead of waiting for a habit reminder's
+// scheduled hour.
+export async function sendTestNotification() {
+  const fn = httpsCallable(functions, 'sendTestNotification');
+  const result = await fn();
+  return result.data;
 }

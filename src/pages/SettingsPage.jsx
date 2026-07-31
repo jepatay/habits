@@ -6,7 +6,8 @@ import { usePushSubscription } from '../push/usePushSubscription';
 
 export default function SettingsPage() {
   const { user, profile, isAdmin, logout } = useAuth();
-  const { supported, permission, enabled, busy, enablePush, disablePush } = usePushSubscription();
+  const { supported, permission, enabled, busy, error, testResult, enablePush, disablePush, testPush } =
+    usePushSubscription();
 
   async function handleColorChange(color) {
     await updateUserDoc(user.uid, { colorTheme: color });
@@ -41,17 +42,35 @@ export default function SettingsPage() {
                 ? 'Reminders will be sent as push notifications on this device.'
                 : 'Turn on push notifications to get per-habit reminders on this device.'}
             </p>
-            <button
-              className="btn secondary"
-              disabled={busy || permission === 'denied'}
-              onClick={enabled ? disablePush : enablePush}
-            >
-              {permission === 'denied'
-                ? 'Blocked in browser settings'
-                : enabled
-                  ? 'Disable push'
-                  : 'Enable push'}
-            </button>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                className="btn secondary"
+                disabled={busy || permission === 'denied'}
+                onClick={enabled ? disablePush : enablePush}
+              >
+                {permission === 'denied'
+                  ? 'Blocked in browser settings'
+                  : enabled
+                    ? 'Disable push'
+                    : 'Enable push'}
+              </button>
+              {enabled && (
+                <button className="btn secondary" disabled={busy} onClick={testPush}>
+                  Send test notification
+                </button>
+              )}
+            </div>
+            {error && (
+              <div className="banner error" style={{ marginTop: 10 }}>
+                {error}
+              </div>
+            )}
+            {testResult && (
+              <div className="banner success" style={{ marginTop: 10 }}>
+                Sent - check for a notification on this device. ({testResult.successCount} delivered
+                {testResult.failureCount ? `, ${testResult.failureCount} failed` : ''})
+              </div>
+            )}
           </>
         )}
       </div>
