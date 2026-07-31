@@ -120,6 +120,22 @@ export function subscribeEntriesForUser(userId, callback) {
   });
 }
 
+// The daily grid only ever displays a handful of visible dates, so it has
+// no need to sync a user's entire history (which can be years' worth of
+// entries for an import like Loop's) on every load. Requires a composite
+// index on (user_id, date) - see firestore.indexes.json.
+export function subscribeEntriesForUserInRange(userId, startDate, endDate, callback) {
+  const q = query(
+    collection(db, 'entries'),
+    where('user_id', '==', userId),
+    where('date', '>=', startDate),
+    where('date', '<=', endDate),
+  );
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  });
+}
+
 export function subscribeEntriesForHabit(habitId, userId, callback) {
   const q = query(
     collection(db, 'entries'),

@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useViewedUser } from '../contexts/ViewedUserContext';
 import {
   subscribeHabits,
-  subscribeEntriesForUser,
+  subscribeEntriesForUserInRange,
   createHabit,
   updateHabit,
   updateHabitsOrder,
@@ -32,6 +32,12 @@ export default function HabitsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
 
+  // Most recent day first (leftmost) - on a narrow phone screen the columns
+  // that scroll off to the right are the ones you'd otherwise never see.
+  const dateKeys = useMemo(() => [...lastNDays(WINDOW_SIZE)].reverse(), []);
+  const rangeStart = dateKeys[dateKeys.length - 1];
+  const rangeEnd = dateKeys[0];
+
   useEffect(() => {
     if (!viewedUid) return undefined;
     setHabits(null);
@@ -41,12 +47,8 @@ export default function HabitsPage() {
 
   useEffect(() => {
     if (!viewedUid) return undefined;
-    return subscribeEntriesForUser(viewedUid, setEntries);
-  }, [viewedUid]);
-
-  // Most recent day first (leftmost) - on a narrow phone screen the columns
-  // that scroll off to the right are the ones you'd otherwise never see.
-  const dateKeys = useMemo(() => [...lastNDays(WINDOW_SIZE)].reverse(), []);
+    return subscribeEntriesForUserInRange(viewedUid, rangeStart, rangeEnd, setEntries);
+  }, [viewedUid, rangeStart, rangeEnd]);
 
   const sortedHabits = useMemo(() => {
     if (!habits) return habits;
