@@ -95,6 +95,18 @@ export async function deleteHabit(habitId) {
   await deleteDoc(doc(db, 'habits', habitId));
 }
 
+// Rewrites every habit's order to its index in the given array, all in one
+// batch. Reassigning everyone's order (rather than swapping just two values)
+// keeps things consistent even for habits that never had an explicit order
+// before (e.g. anything created prior to drag-to-reorder existing).
+export async function updateHabitsOrder(orderedHabitIds) {
+  const batch = writeBatch(db);
+  orderedHabitIds.forEach((habitId, index) => {
+    batch.update(doc(db, 'habits', habitId), { order: index });
+  });
+  await batch.commit();
+}
+
 // ---- entries ----
 
 function entryDocId(habitId, userId, date) {

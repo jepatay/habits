@@ -6,6 +6,7 @@ import {
   subscribeEntriesForUser,
   createHabit,
   updateHabit,
+  updateHabitsOrder,
   archiveHabit,
   setEntry,
   deleteEntry,
@@ -42,14 +43,6 @@ export default function HabitsPage() {
     if (!viewedUid) return undefined;
     return subscribeEntriesForUser(viewedUid, setEntries);
   }, [viewedUid]);
-
-  // Keeps the open edit modal's habit in sync with live updates (e.g. after
-  // a move-up/move-down reorder), so a second click reorders again instead
-  // of replaying a stale order value.
-  useEffect(() => {
-    if (!habits) return;
-    setEditingHabit((prev) => (prev ? habits.find((h) => h.id === prev.id) || prev : prev));
-  }, [habits]);
 
   // Most recent day first (leftmost) - on a narrow phone screen the columns
   // that scroll off to the right are the ones you'd otherwise never see.
@@ -94,16 +87,8 @@ export default function HabitsPage() {
     setEditingHabit(null);
   }
 
-  async function handleMove(habit, direction) {
-    const list = sortedHabits;
-    const index = list.findIndex((h) => h.id === habit.id);
-    const otherIndex = index + direction;
-    if (otherIndex < 0 || otherIndex >= list.length) return;
-    const other = list[otherIndex];
-    await Promise.all([
-      updateHabit(habit.id, { order: habitOrderKey(other) }),
-      updateHabit(other.id, { order: habitOrderKey(habit) }),
-    ]);
+  async function handleReorder(orderedHabitIds) {
+    await updateHabitsOrder(orderedHabitIds);
   }
 
   // Habits are admin-managed only (create/edit/archive); members just check
@@ -127,6 +112,12 @@ export default function HabitsPage() {
         )}
       </div>
 
+      {canManageHabits && sortedHabits && sortedHabits.length > 1 && (
+        <p style={{ color: 'var(--text-faint)', fontSize: '0.75rem', margin: '0 0 8px' }}>
+          Drag ☰ to reorder habits.
+        </p>
+      )}
+
       {sortedHabits === null ? (
         <Spinner />
       ) : sortedHabits.length === 0 ? (
@@ -143,6 +134,7 @@ export default function HabitsPage() {
             setEditingHabit(habit);
             setShowForm(true);
           }}
+          onReorder={handleReorder}
         />
       )}
 
@@ -171,8 +163,6 @@ export default function HabitsPage() {
               setEditingHabit(null);
             }}
             onDelete={handleArchive}
-            onMoveUp={editingHabit ? () => handleMove(editingHabit, -1) : undefined}
-            onMoveDown={editingHabit ? () => handleMove(editingHabit, 1) : undefined}
           />
         </Modal>
       )}

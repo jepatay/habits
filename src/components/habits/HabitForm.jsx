@@ -3,17 +3,7 @@ import ColorPicker, { HABIT_COLORS } from '../common/ColorPicker';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export default function HabitForm({
-  habit,
-  users,
-  currentUid,
-  isAdmin,
-  onSave,
-  onCancel,
-  onDelete,
-  onMoveUp,
-  onMoveDown,
-}) {
+export default function HabitForm({ habit, users, currentUid, isAdmin, onSave, onCancel, onDelete }) {
   const [name, setName] = useState(habit?.name || '');
   const [question, setQuestion] = useState(habit?.question || '');
   const [type, setType] = useState(habit?.type || 'yes_no');
@@ -145,17 +135,6 @@ export default function HabitForm({
             ))}
           </select>
         </>
-      )}
-
-      {habit && (onMoveUp || onMoveDown) && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
-          <button type="button" className="btn secondary" style={{ flex: 1 }} onClick={onMoveUp}>
-            ↑ Move up
-          </button>
-          <button type="button" className="btn secondary" style={{ flex: 1 }} onClick={onMoveDown}>
-            ↓ Move down
-          </button>
-        </div>
       )}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>

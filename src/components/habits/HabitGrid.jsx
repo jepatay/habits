@@ -1,5 +1,6 @@
-import { useNavigate } from 'react-router-dom';
-import GridCell from './GridCell';
+import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import SortableHabitRow from './SortableHabitRow';
 import { parseDateKey, todayKey } from '../../utils/dates';
 
 const CELL_SIZE = 28; // 40 * 0.7, per request to shrink the grid boxes
@@ -14,9 +15,21 @@ export default function HabitGrid({
   canManageHabits,
   onCellChange,
   onEditHabit,
+  onReorder,
 }) {
   const today = todayKey();
-  const navigate = useNavigate();
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } }),
+  );
+
+  function handleDragEnd(event) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = habits.findIndex((h) => h.id === active.id);
+    const newIndex = habits.findIndex((h) => h.id === over.id);
+    onReorder(arrayMove(habits, oldIndex, newIndex).map((h) => h.id));
+  }
 
   return (
     <div className="hide-scrollbar" style={{ overflowX: 'auto' }}>
@@ -43,78 +56,25 @@ export default function HabitGrid({
           })}
         </div>
 
-        {habits.map((habit) => (
-          <div key={habit.id} style={{ display: 'flex', alignItems: 'center', marginTop: 6 }}>
-            <div
-              style={{
-                width: NAME_COL_WIDTH,
-                flexShrink: 0,
-                paddingRight: 6,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-              }}
-            >
-              <span
-                style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: '50%',
-                  background: habit.color,
-                  flexShrink: 0,
-                }}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={habits.map((h) => h.id)} strategy={verticalListSortingStrategy}>
+            {habits.map((habit) => (
+              <SortableHabitRow
+                key={habit.id}
+                habit={habit}
+                dateKeys={dateKeys}
+                entriesByDate={entriesByHabit.get(habit.id) || new Map()}
+                editable={editable}
+                canManageHabits={canManageHabits}
+                cellSize={CELL_SIZE}
+                cellGap={CELL_GAP}
+                nameColWidth={NAME_COL_WIDTH}
+                onCellChange={onCellChange}
+                onEditHabit={onEditHabit}
               />
-              <span
-                role="button"
-                tabIndex={0}
-                onClick={() => navigate(`/habits/${habit.id}`)}
-                onKeyDown={(e) => e.key === 'Enter' && navigate(`/habits/${habit.id}`)}
-                style={{
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  fontSize: '0.78rem',
-                  cursor: 'pointer',
-                  flex: 1,
-                  minWidth: 0,
-                }}
-                title={habit.name}
-              >
-                {habit.name}
-              </span>
-              {canManageHabits && (
-                <button
-                  type="button"
-                  onClick={() => onEditHabit(habit)}
-                  aria-label={`Edit ${habit.name}`}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-faint)',
-                    fontSize: '0.85rem',
-                    cursor: 'pointer',
-                    flexShrink: 0,
-                    padding: 2,
-                  }}
-                >
-                  ✎
-                </button>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: CELL_GAP }}>
-              {dateKeys.map((key) => (
-                <GridCell
-                  key={key}
-                  habit={habit}
-                  entry={entriesByHabit.get(habit.id)?.get(key)}
-                  editable={editable}
-                  size={CELL_SIZE}
-                  onChange={(value) => onCellChange(habit, key, value)}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
+            ))}
+          </SortableContext>
+        </DndContext>
       </div>
     </div>
   );
