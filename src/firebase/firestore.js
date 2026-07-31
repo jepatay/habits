@@ -2,7 +2,6 @@ import {
   collection,
   doc,
   getDoc,
-  getDocs,
   setDoc,
   addDoc,
   updateDoc,
@@ -113,17 +112,11 @@ function entryDocId(habitId, userId, date) {
   return `${habitId}_${userId}_${date}`;
 }
 
-export function subscribeEntriesForUser(userId, callback) {
-  const q = query(collection(db, 'entries'), where('user_id', '==', userId));
-  return onSnapshot(q, (snap) => {
-    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-  });
-}
-
-// The daily grid only ever displays a handful of visible dates, so it has
-// no need to sync a user's entire history (which can be years' worth of
-// entries for an import like Loop's) on every load. Requires a composite
-// index on (user_id, date) - see firestore.indexes.json.
+// Every entries subscription in the app is scoped to a bounded date range
+// (the habits grid's visible window, or a reward's lookback window) rather
+// than a user's entire history, which can be years' worth of entries for an
+// import like Loop's. Requires a composite index on (user_id, date) - see
+// firestore.indexes.json.
 export function subscribeEntriesForUserInRange(userId, startDate, endDate, callback) {
   const q = query(
     collection(db, 'entries'),
@@ -187,12 +180,6 @@ export async function setEntriesBatch(userId, entries) {
 export async function deleteEntry(habitId, userId, date) {
   const id = entryDocId(habitId, userId, date);
   await deleteDoc(doc(db, 'entries', id));
-}
-
-export async function getAllEntriesForUser(userId) {
-  const q = query(collection(db, 'entries'), where('user_id', '==', userId));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 }
 
 // ---- rewards ----
