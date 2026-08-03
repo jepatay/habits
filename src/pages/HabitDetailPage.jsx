@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getHabit, subscribeEntriesForHabit } from '../firebase/firestore';
+import { getHabit, subscribeEntriesForHabit, setEntry, deleteEntry } from '../firebase/firestore';
 import { useViewedUser } from '../contexts/ViewedUserContext';
 import { computeStreaks, bestStreaksList } from '../utils/streaks';
 import {
@@ -14,6 +14,7 @@ import {
 import StatChips from '../components/habits/detail/StatChips';
 import TrendsCard from '../components/habits/detail/TrendsCard';
 import ContributionHeatmap from '../components/habits/detail/ContributionHeatmap';
+import EditEntryModal from '../components/habits/detail/EditEntryModal';
 import StreaksList from '../components/habits/detail/StreaksList';
 import Spinner from '../components/common/Spinner';
 
@@ -24,10 +25,11 @@ function fmtDays(value) {
 export default function HabitDetailPage() {
   const { habitId } = useParams();
   const navigate = useNavigate();
-  const { viewedUid } = useViewedUser();
+  const { viewedUid, isViewingSelf } = useViewedUser();
   const [habit, setHabit] = useState(null);
   const [entries, setEntries] = useState([]);
   const [fullHistory, setFullHistory] = useState(false);
+  const [editingCell, setEditingCell] = useState(null);
 
   useEffect(() => {
     getHabit(habitId).then(setHabit);
@@ -49,6 +51,17 @@ export default function HabitDetailPage() {
     [habit, entries, fullHistory],
   );
   const bestStreaks = useMemo(() => (habit ? bestStreaksList(habit, entries, 10) : []), [habit, entries]);
+  const entriesByDate = useMemo(() => new Map(entries.map((e) => [e.date, e])), [entries]);
+
+  async function handleSaveEntry(value) {
+    await setEntry(habit.id, viewedUid, editingCell.date, value);
+    setEditingCell(null);
+  }
+
+  async function handleClearEntry() {
+    await deleteEntry(habit.id, viewedUid, editingCell.date);
+    setEditingCell(null);
+  }
 
   if (!habit) return <Spinner />;
 
@@ -87,12 +100,29 @@ export default function HabitDetailPage() {
             {fullHistory ? 'Last 12 months' : 'View full history'}
           </button>
         </div>
-        <ContributionHeatmap weeks={heatmap.weeks} monthLabels={heatmap.monthLabels} color={habit.color} />
+        <ContributionHeatmap
+          weeks={heatmap.weeks}
+          monthLabels={heatmap.monthLabels}
+          color={habit.color}
+          editable={isViewingSelf}
+          onCellClick={setEditingCell}
+        />
       </div>
 
       <Section title="Best streaks">
         <StreaksList streaks={bestStreaks} />
       </Section>
+
+      {editingCell && (
+        <EditEntryModal
+          habit={habit}
+          date={editingCell.date}
+          currentValue={entriesByDate.get(editingCell.date)?.value ?? null}
+          onSave={handleSaveEntry}
+          onClear={handleClearEntry}
+          onClose={() => setEditingCell(null)}
+        />
+      )}
     </div>
   );
 }
