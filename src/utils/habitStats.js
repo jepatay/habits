@@ -1,7 +1,7 @@
 import { isScheduledDay, isSuccess } from './streaks';
-import { parseDateKey, toDateKey, todayKey, addDays, daysInMonth } from './dates';
+import { parseDateKey, toDateKey, todayKey, addDays, daysBetween, daysInMonth } from './dates';
 
-function habitStartKey(habit, entries) {
+export function habitStartKey(habit, entries) {
   if (habit.createdAt) {
     const d = habit.createdAt.toDate ? habit.createdAt.toDate() : new Date(habit.createdAt);
     return toDateKey(d);
@@ -71,9 +71,6 @@ export function monthlyScoreSeries(habit, entries, months = 12) {
   for (let i = months - 1; i >= 0; i--) {
     const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
     const monthStartKey = toDateKey(d);
-    if (monthStartKey < start && i !== months - 1 && monthStartKey < todayKey()) {
-      // still include, just may have zero scheduled days before start
-    }
     const monthEndKey = toDateKey(new Date(d.getFullYear(), d.getMonth(), daysInMonth(d.getFullYear(), d.getMonth())));
     const clampedStart = monthStartKey > start ? monthStartKey : start;
     const clampedEnd = monthEndKey > todayKey() ? todayKey() : monthEndKey;
@@ -137,36 +134,80 @@ export function weekdayScores(habit, entries) {
   }));
 }
 
-// Returns an array of month blocks, most recent last, each with a flat list
-// of { date, status } cells (status: 'success' | 'fail' | 'none' | 'unscheduled').
-export function calendarMonths(habit, entries, monthsBack = 6) {
-  const byDate = new Map(entries.map((e) => [e.date, e]));
-  const today = parseDateKey(todayKey());
-  const months = [];
+// Rolling average number of days between completions, over three trailing
+// windows (or since creation, if the habit is younger than the window).
+// A shorter interval means a more frequent/improving cadence, so the 30-day
+// figure is compared against the 90-day one to derive a trend direction.
+export function frequencyMetrics(habit, entries) {
+  const start = habitStartKey(habit, entries);
+  const today = todayKey();
 
-  for (let i = monthsBack - 1; i >= 0; i--) {
-    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-    const year = d.getFullYear();
-    const month = d.getMonth();
-    const numDays = daysInMonth(year, month);
-    const cells = [];
-    for (let day = 1; day <= numDays; day++) {
-      const key = toDateKey(new Date(year, month, day));
-      if (key > todayKey()) {
-        cells.push({ date: key, status: 'future' });
-        continue;
-      }
-      if (!isScheduledDay(habit, key)) {
-        cells.push({ date: key, status: 'unscheduled' });
-        continue;
-      }
-      const entry = byDate.get(key);
-      cells.push({ date: key, status: isSuccess(habit, entry) ? 'success' : entry ? 'fail' : 'none' });
+  function windowInterval(windowDays) {
+    const windowStart = addDays(today, -(windowDays - 1));
+    const effectiveStart = windowStart > start ? windowStart : start;
+    const spanDays = daysBetween(effectiveStart, today) + 1;
+    let successCount = 0;
+    for (const e of entries) {
+      if (e.date >= effectiveStart && e.date <= today && isSuccess(habit, e)) successCount += 1;
     }
-    months.push({
-      label: d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-      cells,
-    });
+    if (successCount === 0) return null;
+    return spanDays / successCount;
   }
-  return months;
+
+  const d30 = windowInterval(30);
+  const d90 = windowInterval(90);
+  const d365 = windowInterval(365);
+
+  let trend = 'flat';
+  if (d30 != null && d90 != null) {
+    if (d30 < d90 - 0.05) trend = 'improving';
+    else if (d30 > d90 + 0.05) trend = 'declining';
+  }
+
+  return { d30, d90, d365, trend };
+}
+
+// GitHub-style contribution grid: an array of weeks (Sunday-first columns),
+// each holding 7 day-cells. Defaults to the trailing `monthsBack` months (or
+// since creation if younger); pass monthsBack: null for full history.
+export function contributionWeeks(habit, entries, { monthsBack = 12 } = {}) {
+  const byDate = new Map(entries.map((e) => [e.date, e]));
+  const today = todayKey();
+  const habitStart = habitStartKey(habit, entries);
+
+  let rangeStart = habitStart;
+  if (monthsBack != null) {
+    const now = parseDateKey(today);
+    const cutoff = toDateKey(new Date(now.getFullYear(), now.getMonth() - monthsBack, now.getDate()));
+    if (cutoff > habitStart) rangeStart = cutoff;
+  }
+
+  const gridStart = addDays(rangeStart, -parseDateKey(rangeStart).getDay());
+
+  const weeks = [];
+  const monthLabels = [];
+  let cursor = gridStart;
+  let lastLabeledMonth = null;
+
+  while (cursor <= today) {
+    const week = [];
+    for (let d = 0; d < 7; d++) {
+      const key = addDays(cursor, d);
+      let status;
+      if (key < habitStart) status = 'before';
+      else if (key > today) status = 'future';
+      else if (!isScheduledDay(habit, key)) status = 'unscheduled';
+      else status = isSuccess(habit, byDate.get(key)) ? 'success' : byDate.get(key) ? 'fail' : 'none';
+      week.push({ date: key, status });
+    }
+    const weekMonth = parseDateKey(week[0].date).getMonth();
+    if (weekMonth !== lastLabeledMonth && week.some((c) => c.status !== 'before')) {
+      monthLabels.push({ weekIndex: weeks.length, label: parseDateKey(week[0].date).toLocaleDateString('en-US', { month: 'short' }) });
+      lastLabeledMonth = weekMonth;
+    }
+    weeks.push(week);
+    cursor = addDays(cursor, 7);
+  }
+
+  return { weeks, monthLabels };
 }
