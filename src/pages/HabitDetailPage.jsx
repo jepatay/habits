@@ -93,12 +93,6 @@ export default function HabitDetailPage() {
       <Section title="Best streaks">
         <StreaksList streaks={bestStreaks} />
       </Section>
-
-      {habit.notes && (
-        <Section title="Notes">
-          <p style={{ color: 'var(--text-dim)', fontSize: '0.85rem', whiteSpace: 'pre-wrap' }}>{habit.notes}</p>
-        </Section>
-      )}
     </div>
   );
 }
