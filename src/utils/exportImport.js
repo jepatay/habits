@@ -1,6 +1,6 @@
 import { getDocs, collection, query, where } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { createHabit, setEntry } from '../firebase/firestore';
+import { createHabit, setEntriesBatch } from '../firebase/firestore';
 
 export async function exportUserData(uid) {
   const [habitsSnap, entriesSnap, rewardsSnap] = await Promise.all([
@@ -107,6 +107,7 @@ export async function importGenericRecords(uid, records, mapping, habitAssignmen
     created += 1;
   }
 
+  const toWrite = [];
   for (const record of records) {
     const label = String(record[mapping.habitField] ?? '');
     const habitId = habitIdCache[label];
@@ -116,9 +117,10 @@ export async function importGenericRecords(uid, records, mapping, habitAssignmen
       skipped += 1;
       continue;
     }
-    await setEntry(habitId, uid, dateKey, value);
-    imported += 1;
+    toWrite.push({ habitId, date: dateKey, value });
   }
+  await setEntriesBatch(uid, toWrite);
+  imported = toWrite.length;
 
   return { created, imported, skipped };
 }
@@ -135,17 +137,17 @@ export async function importNativeFormat(uid, data) {
     idMap[id] = newId;
   }
 
-  let imported = 0;
   let skipped = 0;
+  const toWrite = [];
   for (const entry of data.entries) {
     const newHabitId = idMap[entry.habit_id];
     if (!newHabitId || !entry.date || entry.value == null) {
       skipped += 1;
       continue;
     }
-    await setEntry(newHabitId, uid, entry.date, entry.value);
-    imported += 1;
+    toWrite.push({ habitId: newHabitId, date: entry.date, value: entry.value });
   }
+  await setEntriesBatch(uid, toWrite);
 
-  return { created: data.habits.length, imported, skipped };
+  return { created: data.habits.length, imported: toWrite.length, skipped };
 }

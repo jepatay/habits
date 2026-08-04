@@ -33,10 +33,12 @@ service cloud.firestore {
 
     match /entries/{entryId} {
       allow read: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
-      // Entries belong to whoever logged them - not even the admin edits
-      // someone else's check-offs, only views them.
-      allow create: if isSignedIn() && request.resource.data.user_id == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.user_id == request.auth.uid;
+      // Entries are normally only writable by whoever logged them, but the
+      // admin also needs to write entries on a member's behalf for the
+      // historical-data import feature (Settings > Import/Export, admin-only
+      // in the UI) - so admin gets the same write access here as elsewhere.
+      allow create: if isSignedIn() && (request.resource.data.user_id == request.auth.uid || isAdmin());
+      allow update, delete: if isSignedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
     }
 
     match /rewards/{rewardId} {
