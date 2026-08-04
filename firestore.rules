@@ -28,7 +28,11 @@ service cloud.firestore {
 
     match /habits/{habitId} {
       allow read: if isSignedIn() && (resource.data.owner_uid == request.auth.uid || isAdmin());
-      allow write: if isAdmin();
+      // Members manage their own habits (create/edit/archive/reorder);
+      // admin can do the same for anyone, e.g. setting habits up for a
+      // member who'd rather have them handed to them.
+      allow create: if isSignedIn() && (request.resource.data.owner_uid == request.auth.uid || isAdmin());
+      allow update, delete: if isSignedIn() && (resource.data.owner_uid == request.auth.uid || isAdmin());
     }
 
     match /entries/{entryId} {

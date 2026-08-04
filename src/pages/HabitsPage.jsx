@@ -93,9 +93,9 @@ export default function HabitsPage() {
     await updateHabitsOrder(orderedHabitIds);
   }
 
-  // Habits are admin-managed only (create/edit/archive); members just check
-  // off entries for their own habits - matches the Firestore rules below.
-  const canManageHabits = isAdmin;
+  // Everyone manages their own habits (create/edit/archive/reorder); admin
+  // can additionally manage anyone's - matches the Firestore rules below.
+  const canManageHabits = isAdmin || isViewingSelf;
 
   return (
     <div>
