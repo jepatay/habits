@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   setDoc,
   addDoc,
   updateDoc,
@@ -16,6 +17,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from './config';
+import { isSuccess } from '../utils/streaks';
 
 // ---- users ----
 
@@ -209,6 +211,59 @@ export async function updateReward(rewardId, data) {
 
 export async function deleteReward(rewardId) {
   await deleteDoc(doc(db, 'rewards', rewardId));
+}
+
+// ---- reward payouts (per-completion rewards) ----
+
+export function subscribeRewardPayouts(ownerUid, callback) {
+  const q = query(collection(db, 'reward_payouts'), where('owner_uid', '==', ownerUid));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  });
+}
+
+export async function markPayoutPaid(payoutId) {
+  await updateDoc(doc(db, 'reward_payouts', payoutId), { status: 'paid', paidAt: serverTimestamp() });
+}
+
+// Called right after an entry is checked/unchecked by hand (grid tap, or the
+// heatmap edit modal) - bulk imports go through setEntriesBatch instead and
+// deliberately skip this, so importing years of history doesn't flood the
+// payout ledger with hundreds of "pending" rewards.
+export async function syncRewardPayoutsForEntry(ownerUid, habit, date, value) {
+  const rewardsSnap = await getDocs(
+    query(collection(db, 'rewards'), where('owner_uid', '==', ownerUid), where('type', '==', 'recurring')),
+  );
+  const rewards = rewardsSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((r) => r.condition?.habit_id === habit.id);
+  if (!rewards.length) return;
+
+  const success = isSuccess(habit, { value });
+  await Promise.all(
+    rewards.map(async (reward) => {
+      const ref = doc(db, 'reward_payouts', `${reward.id}_${date}`);
+      const snap = await getDoc(ref);
+      if (success) {
+        if (!snap.exists()) {
+          await setDoc(ref, {
+            reward_id: reward.id,
+            habit_id: habit.id,
+            owner_uid: ownerUid,
+            date,
+            name: reward.name,
+            reward_text: reward.reward_text,
+            status: 'pending',
+            createdAt: serverTimestamp(),
+          });
+        }
+      } else if (snap.exists() && snap.data().status === 'pending') {
+        // Unchecking right after a mis-tap shouldn't leave a stray payout -
+        // but once it's marked paid it's a done deal, so leave it alone.
+        await deleteDoc(ref);
+      }
+    }),
+  );
 }
 
 export { orderBy };

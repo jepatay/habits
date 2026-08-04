@@ -10,6 +10,7 @@ import {
   archiveHabit,
   setEntry,
   deleteEntry,
+  syncRewardPayoutsForEntry,
 } from '../firebase/firestore';
 import { lastNDays } from '../utils/dates';
 import HabitGrid from '../components/habits/HabitGrid';
@@ -70,6 +71,7 @@ export default function HabitsPage() {
     } else {
       await setEntry(habit.id, viewedUid, dateKey, value);
     }
+    await syncRewardPayoutsForEntry(viewedUid, habit, dateKey, value);
   }
 
   async function handleSaveHabit(data) {

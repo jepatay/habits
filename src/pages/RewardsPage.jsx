@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewedUser } from '../contexts/ViewedUserContext';
 import { useUnlockedRewards } from '../hooks/useUnlockedRewards';
-import { createReward, updateReward, deleteReward } from '../firebase/firestore';
+import { useRewardPayouts } from '../hooks/useRewardPayouts';
+import { createReward, updateReward, deleteReward, markPayoutPaid } from '../firebase/firestore';
 import RewardCard from '../components/rewards/RewardCard';
+import RecurringRewardCard from '../components/rewards/RecurringRewardCard';
 import RewardForm from '../components/rewards/RewardForm';
 import Modal from '../components/common/Modal';
 
@@ -11,6 +13,7 @@ export default function RewardsPage() {
   const { isAdmin } = useAuth();
   const { viewedUid, users } = useViewedUser();
   const { rewards } = useUnlockedRewards(viewedUid);
+  const recurringRewards = useRewardPayouts(viewedUid);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
 
@@ -46,27 +49,45 @@ export default function RewardsPage() {
         )}
       </div>
 
-      {rewards.length === 0 ? (
+      {rewards.length === 0 && recurringRewards.length === 0 ? (
         <div className="empty-state">No rewards set up yet.</div>
       ) : (
-        rewards
-          .sort((a, b) => b.current / (b.target || 1) - a.current / (a.target || 1))
-          .map(({ reward, habit, current, target, status }) => (
-            <RewardCard
+        <>
+          {rewards
+            .sort((a, b) => b.current / (b.target || 1) - a.current / (a.target || 1))
+            .map(({ reward, habit, current, target, status }) => (
+              <RewardCard
+                key={reward.id}
+                reward={{ ...reward, status }}
+                habitName={habit?.name}
+                current={current}
+                target={target}
+                isAdmin={isAdmin}
+                onEdit={() => {
+                  setEditing(reward);
+                  setShowForm(true);
+                }}
+                onFulfill={() => handleFulfill(reward.id)}
+                onDelete={() => handleDelete(reward.id)}
+              />
+            ))}
+
+          {recurringRewards.map(({ reward, habit, payouts }) => (
+            <RecurringRewardCard
               key={reward.id}
-              reward={{ ...reward, status }}
-              habitName={habit?.name}
-              current={current}
-              target={target}
+              reward={reward}
+              habit={habit}
+              payouts={payouts}
               isAdmin={isAdmin}
               onEdit={() => {
                 setEditing(reward);
                 setShowForm(true);
               }}
-              onFulfill={() => handleFulfill(reward.id)}
+              onMarkPaid={markPayoutPaid}
               onDelete={() => handleDelete(reward.id)}
             />
-          ))
+          ))}
+        </>
       )}
 
       {showForm && (
@@ -80,6 +101,7 @@ export default function RewardsPage() {
           <RewardForm
             reward={editing}
             users={users.length ? users : []}
+            defaultOwnerUid={viewedUid}
             onSave={handleSave}
             onCancel={() => {
               setShowForm(false);

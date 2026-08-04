@@ -49,5 +49,25 @@ service cloud.firestore {
       allow read: if isSignedIn() && (resource.data.owner_uid == request.auth.uid || isAdmin());
       allow write: if isAdmin();
     }
+
+    match /reward_payouts/{payoutId} {
+      // resource is null for a not-yet-created payout id, which the client
+      // checks for before deciding whether to create one - resource.data
+      // would throw on that null, so a missing doc has to short-circuit to
+      // allowed (there's nothing to read anyway) before touching .data.
+      allow read: if isSignedIn() && (isAdmin() || resource == null || resource.data.owner_uid == request.auth.uid);
+      // Created automatically the moment whoever's checking off the habit
+      // (the member themselves, or admin acting on their behalf) logs a
+      // qualifying entry - so create needs the same owner-or-admin access
+      // as the entry write that triggers it.
+      allow create: if isSignedIn() && (request.resource.data.owner_uid == request.auth.uid || isAdmin());
+      // Only admin confirms a payout - that's the whole point of the
+      // pending/paid flow.
+      allow update: if isAdmin();
+      // Undoing a mis-tap can delete a still-pending payout, but a paid one
+      // is a done deal and can't be clawed back this way.
+      allow delete: if isSignedIn() && (resource.data.owner_uid == request.auth.uid || isAdmin()) &&
+        resource.data.status == 'pending';
+    }
   }
 }

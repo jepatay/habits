@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getHabit, subscribeEntriesForHabit, setEntry, deleteEntry } from '../firebase/firestore';
+import { getHabit, subscribeEntriesForHabit, setEntry, deleteEntry, syncRewardPayoutsForEntry } from '../firebase/firestore';
 import { useViewedUser } from '../contexts/ViewedUserContext';
 import { computeStreaks, bestStreaksList } from '../utils/streaks';
 import {
@@ -55,11 +55,13 @@ export default function HabitDetailPage() {
 
   async function handleSaveEntry(value) {
     await setEntry(habit.id, viewedUid, editingCell.date, value);
+    await syncRewardPayoutsForEntry(viewedUid, habit, editingCell.date, value);
     setEditingCell(null);
   }
 
   async function handleClearEntry() {
     await deleteEntry(habit.id, viewedUid, editingCell.date);
+    await syncRewardPayoutsForEntry(viewedUid, habit, editingCell.date, null);
     setEditingCell(null);
   }
 

@@ -45,7 +45,9 @@ export function useUnlockedRewards(uid) {
 
   const computed = useMemo(
     () =>
-      rewards.map((reward) => {
+      rewards
+        .filter((reward) => reward.type !== 'recurring')
+        .map((reward) => {
         const habit = habitsById.get(reward.condition?.habit_id);
         const { current, target } = computeRewardProgress(reward, habit, entries);
         return {

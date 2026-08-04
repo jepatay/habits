@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { subscribeHabits } from '../../firebase/firestore';
 
-export default function RewardForm({ reward, users, onSave, onCancel }) {
+export default function RewardForm({ reward, users, defaultOwnerUid, onSave, onCancel }) {
+  const [type, setType] = useState(reward?.type || 'milestone');
   const [name, setName] = useState(reward?.name || '');
   const [description, setDescription] = useState(reward?.description || '');
   const [rewardText, setRewardText] = useState(reward?.reward_text || '');
-  const [ownerUid, setOwnerUid] = useState(reward?.owner_uid || users?.[0]?.id || '');
+  const [ownerUid, setOwnerUid] = useState(reward?.owner_uid || defaultOwnerUid || users?.[0]?.id || '');
   const [habitId, setHabitId] = useState(reward?.condition?.habit_id || '');
   const [metric, setMetric] = useState(reward?.condition?.metric || 'count');
   const [target, setTarget] = useState(reward?.condition?.target ?? 1);
@@ -15,7 +16,7 @@ export default function RewardForm({ reward, users, onSave, onCancel }) {
 
   useEffect(() => {
     if (!ownerUid) return undefined;
-    return subscribeHabits(ownerUid, setHabits, { includeArchived: true });
+    return subscribeHabits(ownerUid, setHabits);
   }, [ownerUid]);
 
   useEffect(() => {
@@ -27,16 +28,20 @@ export default function RewardForm({ reward, users, onSave, onCancel }) {
     setSaving(true);
     try {
       await onSave({
+        type,
         name: name.trim(),
         description: description.trim(),
         reward_text: rewardText.trim(),
         owner_uid: ownerUid,
-        condition: {
-          habit_id: habitId,
-          metric,
-          target: Number(target) || 0,
-          within_days: withinDays === '' ? null : Number(withinDays),
-        },
+        condition:
+          type === 'recurring'
+            ? { habit_id: habitId }
+            : {
+                habit_id: habitId,
+                metric,
+                target: Number(target) || 0,
+                within_days: withinDays === '' ? null : Number(withinDays),
+              },
       });
     } finally {
       setSaving(false);
@@ -45,6 +50,12 @@ export default function RewardForm({ reward, users, onSave, onCancel }) {
 
   return (
     <form onSubmit={handleSubmit}>
+      <label htmlFor="reward-type">Type</label>
+      <select id="reward-type" value={type} onChange={(e) => setType(e.target.value)}>
+        <option value="milestone">Milestone - unlock once after reaching a target</option>
+        <option value="recurring">Per completion - pay out every time she does it</option>
+      </select>
+
       <label htmlFor="reward-name">Name</label>
       <input id="reward-name" type="text" value={name} onChange={(e) => setName(e.target.value)} required />
 
@@ -66,38 +77,42 @@ export default function RewardForm({ reward, users, onSave, onCancel }) {
         ))}
       </select>
 
-      <div style={{ display: 'flex', gap: 12 }}>
-        <div style={{ flex: 1 }}>
-          <label htmlFor="reward-metric">Metric</label>
-          <select id="reward-metric" value={metric} onChange={(e) => setMetric(e.target.value)}>
-            <option value="count">Count of successes</option>
-            <option value="sum">Sum of values</option>
-          </select>
-        </div>
-        <div style={{ flex: 1 }}>
-          <label htmlFor="reward-target">Target</label>
+      {type === 'milestone' && (
+        <>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label htmlFor="reward-metric">Metric</label>
+              <select id="reward-metric" value={metric} onChange={(e) => setMetric(e.target.value)}>
+                <option value="count">Count of successes</option>
+                <option value="sum">Sum of values</option>
+              </select>
+            </div>
+            <div style={{ flex: 1 }}>
+              <label htmlFor="reward-target">Target</label>
+              <input
+                id="reward-target"
+                type="number"
+                min="1"
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <label htmlFor="reward-within">Within days (blank = all-time)</label>
           <input
-            id="reward-target"
+            id="reward-within"
             type="number"
             min="1"
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
-            required
+            placeholder="e.g. 365"
+            value={withinDays}
+            onChange={(e) => setWithinDays(e.target.value)}
           />
-        </div>
-      </div>
+        </>
+      )}
 
-      <label htmlFor="reward-within">Within days (blank = all-time)</label>
-      <input
-        id="reward-within"
-        type="number"
-        min="1"
-        placeholder="e.g. 365"
-        value={withinDays}
-        onChange={(e) => setWithinDays(e.target.value)}
-      />
-
-      <label htmlFor="reward-text">Reward</label>
+      <label htmlFor="reward-text">{type === 'recurring' ? 'Reward per completion' : 'Reward'}</label>
       <input
         id="reward-text"
         type="text"
