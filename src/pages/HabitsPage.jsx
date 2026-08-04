@@ -138,7 +138,8 @@ export default function HabitsPage() {
 
       {isAdmin && sortedHabits && sortedHabits.length > 0 && !isViewingSelf && (
         <p style={{ color: 'var(--text-faint)', fontSize: '0.8rem', marginTop: 12 }}>
-          Viewing {users.find((u) => u.id === viewedUid)?.name}'s data (read-only).
+          Viewing {users.find((u) => u.id === viewedUid)?.name}'s habits - you can add, edit, or reorder them from
+          here, but daily check-offs are hers to log.
         </p>
       )}
 
