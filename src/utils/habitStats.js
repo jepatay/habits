@@ -51,6 +51,13 @@ export function overviewStats(habit, entries) {
       ? scoreForRange(habit, byDate, lastYearStart > start ? lastYearStart : start, lastYearEnd)
       : null;
 
+  const successDates = entries
+    .filter((e) => isSuccess(habit, e))
+    .map((e) => e.date)
+    .sort();
+  const lastActiveDate = successDates[successDates.length - 1] || null;
+  const daysSinceActive = lastActiveDate ? daysBetween(lastActiveDate, today) : null;
+
   return {
     totalCompleted: all.success,
     totalScheduled: all.scheduled,
@@ -59,6 +66,7 @@ export function overviewStats(habit, entries) {
     yearChange: lastYear ? thisYear.percent - lastYear.percent : null,
     monthPercent: thisMonth.percent,
     yearPercent: thisYear.percent,
+    daysSinceActive,
   };
 }
 

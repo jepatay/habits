@@ -4,25 +4,29 @@ import { subscribeRewards, subscribeRewardPayouts, subscribeHabits } from '../fi
 // Per-completion ("recurring") rewards don't have a single unlock state like
 // milestone rewards do - each qualifying entry mints its own payout record,
 // which stays 'pending' until admin confirms it was actually handed over.
-export function useRewardPayouts(uid) {
+//
+// Pass { allUsers: true } (uid is ignored then) for the admin's cross-user
+// view on the Rewards page.
+export function useRewardPayouts(uid, { allUsers = false } = {}) {
   const [rewards, setRewards] = useState([]);
   const [payouts, setPayouts] = useState([]);
   const [habits, setHabits] = useState([]);
+  const active = allUsers || !!uid;
 
   useEffect(() => {
-    if (!uid) return undefined;
-    return subscribeRewards(uid, setRewards);
-  }, [uid]);
+    if (!active) return undefined;
+    return subscribeRewards(allUsers ? null : uid, setRewards);
+  }, [uid, allUsers, active]);
 
   useEffect(() => {
-    if (!uid) return undefined;
-    return subscribeRewardPayouts(uid, setPayouts);
-  }, [uid]);
+    if (!active) return undefined;
+    return subscribeRewardPayouts(allUsers ? null : uid, setPayouts);
+  }, [uid, allUsers, active]);
 
   useEffect(() => {
-    if (!uid) return undefined;
-    return subscribeHabits(uid, setHabits, { includeArchived: true });
-  }, [uid]);
+    if (!active) return undefined;
+    return subscribeHabits(allUsers ? null : uid, setHabits, { includeArchived: true });
+  }, [uid, allUsers, active]);
 
   const habitsById = useMemo(() => new Map(habits.map((h) => [h.id, h])), [habits]);
 

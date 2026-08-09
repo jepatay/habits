@@ -87,6 +87,8 @@ export default function HabitDetailPage() {
         currentStreak={streaks.current}
         bestStreak={streaks.best}
         frequency={frequency}
+        total={overview.totalCompleted}
+        daysSinceActive={overview.daysSinceActive}
       />
       <p style={{ margin: '0 0 20px', fontSize: '0.72rem', color: 'var(--text-faint)' }}>
         Avg days between completions - 30d: {fmtDays(frequency.d30)} · 90d: {fmtDays(frequency.d90)} · 365d:{' '}

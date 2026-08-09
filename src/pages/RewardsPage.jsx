@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useViewedUser } from '../contexts/ViewedUserContext';
 import { useUnlockedRewards } from '../hooks/useUnlockedRewards';
@@ -12,10 +12,16 @@ import Modal from '../components/common/Modal';
 export default function RewardsPage() {
   const { isAdmin } = useAuth();
   const { viewedUid, users } = useViewedUser();
-  const { rewards } = useUnlockedRewards(viewedUid);
-  const recurringRewards = useRewardPayouts(viewedUid);
+  // Admin sees every user's rewards at once here, no profile picker needed -
+  // a member still only ever sees their own (viewedUid is always their own
+  // uid for a non-admin anyway).
+  const { rewards } = useUnlockedRewards(viewedUid, { allUsers: isAdmin });
+  const recurringRewards = useRewardPayouts(viewedUid, { allUsers: isAdmin });
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
+
+  const usersById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
+  const ownerName = (uid) => (isAdmin ? usersById.get(uid)?.name : null);
 
   async function handleSave(data) {
     if (editing) await updateReward(editing.id, data);
@@ -60,6 +66,7 @@ export default function RewardsPage() {
                 key={reward.id}
                 reward={{ ...reward, status }}
                 habitName={habit?.name}
+                ownerName={ownerName(reward.owner_uid)}
                 current={current}
                 target={target}
                 isAdmin={isAdmin}
@@ -77,6 +84,7 @@ export default function RewardsPage() {
               key={reward.id}
               reward={reward}
               habit={habit}
+              ownerName={ownerName(reward.owner_uid)}
               payouts={payouts}
               isAdmin={isAdmin}
               onEdit={() => {

@@ -131,6 +131,17 @@ export function subscribeEntriesForUserInRange(userId, startDate, endDate, callb
   });
 }
 
+// Admin-only: every user's entries in a date range, for aggregating reward
+// progress across everyone without picking a profile first. Rules only let
+// this succeed for an admin (owner-only otherwise), same as the unfiltered
+// habits/rewards subscriptions below.
+export function subscribeEntriesInRange(startDate, endDate, callback) {
+  const q = query(collection(db, 'entries'), where('date', '>=', startDate), where('date', '<=', endDate));
+  return onSnapshot(q, (snap) => {
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  });
+}
+
 export function subscribeEntriesForHabit(habitId, userId, callback) {
   const q = query(
     collection(db, 'entries'),
@@ -216,7 +227,9 @@ export async function deleteReward(rewardId) {
 // ---- reward payouts (per-completion rewards) ----
 
 export function subscribeRewardPayouts(ownerUid, callback) {
-  const q = query(collection(db, 'reward_payouts'), where('owner_uid', '==', ownerUid));
+  const q = ownerUid
+    ? query(collection(db, 'reward_payouts'), where('owner_uid', '==', ownerUid))
+    : collection(db, 'reward_payouts');
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
   });

@@ -4,7 +4,7 @@ function formatDate(dateKey) {
   return parseDateKey(dateKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export default function RecurringRewardCard({ reward, habit, payouts, isAdmin, onEdit, onMarkPaid, onDelete }) {
+export default function RecurringRewardCard({ reward, habit, ownerName, payouts, isAdmin, onEdit, onMarkPaid, onDelete }) {
   const pending = payouts.filter((p) => p.status === 'pending');
   const paid = payouts.filter((p) => p.status === 'paid');
 
@@ -12,7 +12,12 @@ export default function RecurringRewardCard({ reward, habit, payouts, isAdmin, o
     <div className="card" style={{ marginBottom: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <p style={{ margin: 0, fontWeight: 700 }}>{reward.name}</p>
+          <p style={{ margin: 0, fontWeight: 700 }}>
+            {reward.name}
+            {ownerName && (
+              <span style={{ fontWeight: 400, color: 'var(--text-faint)', fontSize: '0.75rem' }}> · {ownerName}</span>
+            )}
+          </p>
           <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-dim)' }}>
             {habit ? `${habit.name} · ` : ''}
             {reward.reward_text} each time

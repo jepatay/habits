@@ -5,7 +5,14 @@ function fmtDays(value) {
   return value == null ? '—' : `${value.toFixed(1)}d`;
 }
 
-export default function StatChips({ color, score, currentStreak, bestStreak, frequency }) {
+function fmtDaysAgo(value) {
+  if (value == null) return 'Never';
+  if (value === 0) return 'Today';
+  if (value === 1) return '1 day ago';
+  return `${value} days ago`;
+}
+
+export default function StatChips({ color, score, currentStreak, bestStreak, frequency, total, daysSinceActive }) {
   const chips = [
     { label: 'Score', value: `${score}%` },
     { label: 'Current streak', value: currentStreak },
@@ -21,6 +28,8 @@ export default function StatChips({ color, score, currentStreak, bestStreak, fre
         </>
       ),
     },
+    { label: 'Total', value: total },
+    { label: 'Last active', value: fmtDaysAgo(daysSinceActive) },
   ];
 
   return (
@@ -29,7 +38,7 @@ export default function StatChips({ color, score, currentStreak, bestStreak, fre
         <div
           key={chip.label}
           style={{
-            flex: '1 1 calc(50% - 6px)',
+            flex: '1 1 calc(33.333% - 6px)',
             minWidth: 100,
             background: 'var(--bg-card)',
             border: '1px solid var(--border)',

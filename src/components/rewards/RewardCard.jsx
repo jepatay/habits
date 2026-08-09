@@ -12,14 +12,19 @@ const STATUS_COLOR = {
   fulfilled: 'var(--text-dim)',
 };
 
-export default function RewardCard({ reward, habitName, current, target, isAdmin, onEdit, onFulfill, onDelete }) {
+export default function RewardCard({ reward, habitName, ownerName, current, target, isAdmin, onEdit, onFulfill, onDelete }) {
   const pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
 
   return (
     <div className="card" style={{ marginBottom: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <p style={{ margin: 0, fontWeight: 700 }}>{reward.name}</p>
+          <p style={{ margin: 0, fontWeight: 700 }}>
+            {reward.name}
+            {ownerName && (
+              <span style={{ fontWeight: 400, color: 'var(--text-faint)', fontSize: '0.75rem' }}> · {ownerName}</span>
+            )}
+          </p>
           <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--text-dim)' }}>
             {habitName ? `${habitName} · ` : ''}
             {reward.reward_text}

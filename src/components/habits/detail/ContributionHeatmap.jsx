@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 const STATUS_COLOR = {
   success: null, // uses habit color
   fail: 'var(--danger)',
@@ -14,13 +16,22 @@ const GAP = 2;
 const COL_WIDTH = CELL + GAP;
 
 export default function ContributionHeatmap({ weeks, monthLabels, color, editable, onCellClick }) {
+  const scrollRef = useRef(null);
   const labelSpans = monthLabels.map((m, idx) => {
     const nextIndex = monthLabels[idx + 1]?.weekIndex ?? weeks.length;
     return { ...m, span: nextIndex - m.weekIndex };
   });
 
+  // Weeks render oldest-to-newest left-to-right, but "now" (the rightmost
+  // column) is what you actually want to see first - scroll there by
+  // default and let scrolling left reveal further history.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollLeft = el.scrollWidth;
+  }, [weeks]);
+
   return (
-    <div className="hide-scrollbar" style={{ overflowX: 'auto' }}>
+    <div ref={scrollRef} className="hide-scrollbar" style={{ overflowX: 'auto' }}>
       <div style={{ display: 'inline-flex', flexDirection: 'column', gap: 4 }}>
         <div style={{ display: 'flex' }}>
           {labelSpans.map((m) => (
