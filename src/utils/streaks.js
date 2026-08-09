@@ -103,24 +103,36 @@ export function bestStreaksList(habit, entries, limit = 5) {
   const streaks = [];
   let runStart = null;
   let runLength = 0;
+  let runEnd = null;
   let cursor = habitStart;
 
   while (cursor <= today) {
     if (isScheduledDay(habit, cursor)) {
-      const success = isSuccess(habit, byDate.get(cursor));
+      const entry = byDate.get(cursor);
+      if (cursor === today && !entry) {
+        // Today's scheduled but not logged yet - there's still time to
+        // extend a run in progress, so don't treat the pending day as a
+        // break the way an explicit miss would be.
+        break;
+      }
+      const success = isSuccess(habit, entry);
       if (success) {
         if (runStart == null) runStart = cursor;
         runLength += 1;
+        runEnd = cursor;
       } else if (runLength > 0) {
-        streaks.push({ start: runStart, end: cursor, length: runLength });
+        streaks.push({ start: runStart, end: cursor, length: runLength, live: false });
         runStart = null;
         runLength = 0;
+        runEnd = null;
       }
     }
     cursor = addDays(cursor, 1);
   }
+  // A run still standing as of today (whether today's already logged a
+  // success or is still pending) is the one still eligible to grow.
   if (runLength > 0) {
-    streaks.push({ start: runStart, end: addDays(today, 1), length: runLength });
+    streaks.push({ start: runStart, end: addDays(runEnd, 1), length: runLength, live: true });
   }
 
   return streaks.sort((a, b) => b.length - a.length).slice(0, limit);
