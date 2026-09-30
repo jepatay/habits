@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { subscribeHabits } from '../../firebase/firestore';
+import { todayKey } from '../../utils/dates';
 
 export default function RewardForm({ reward, users, defaultOwnerUid, onSave, onCancel }) {
   const [type, setType] = useState(reward?.type || 'milestone');
@@ -11,6 +12,8 @@ export default function RewardForm({ reward, users, defaultOwnerUid, onSave, onC
   const [metric, setMetric] = useState(reward?.condition?.metric || 'count');
   const [target, setTarget] = useState(reward?.condition?.target ?? 1);
   const [withinDays, setWithinDays] = useState(reward?.condition?.within_days ?? '');
+  const [every, setEvery] = useState(reward?.condition?.every ?? 30);
+  const [startDate, setStartDate] = useState(reward?.condition?.start_date || todayKey());
   const [habits, setHabits] = useState([]);
   const [saving, setSaving] = useState(false);
 
@@ -36,12 +39,14 @@ export default function RewardForm({ reward, users, defaultOwnerUid, onSave, onC
         condition:
           type === 'recurring'
             ? { habit_id: habitId }
-            : {
-                habit_id: habitId,
-                metric,
-                target: Number(target) || 0,
-                within_days: withinDays === '' ? null : Number(withinDays),
-              },
+            : type === 'every_n'
+              ? { habit_id: habitId, every: Number(every) || 1, start_date: startDate }
+              : {
+                  habit_id: habitId,
+                  metric,
+                  target: Number(target) || 0,
+                  within_days: withinDays === '' ? null : Number(withinDays),
+                },
       });
     } finally {
       setSaving(false);
@@ -54,6 +59,7 @@ export default function RewardForm({ reward, users, defaultOwnerUid, onSave, onC
       <select id="reward-type" value={type} onChange={(e) => setType(e.target.value)}>
         <option value="milestone">Milestone - unlock once after reaching a target</option>
         <option value="recurring">Per completion - pay out every time she does it</option>
+        <option value="every_n">Every N times - pay out each time she hits another N</option>
       </select>
 
       <label htmlFor="reward-name">Name</label>
@@ -112,7 +118,35 @@ export default function RewardForm({ reward, users, defaultOwnerUid, onSave, onC
         </>
       )}
 
-      <label htmlFor="reward-text">{type === 'recurring' ? 'Reward per completion' : 'Reward'}</label>
+      {type === 'every_n' && (
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label htmlFor="reward-every">Every N completions</label>
+            <input
+              id="reward-every"
+              type="number"
+              min="1"
+              value={every}
+              onChange={(e) => setEvery(e.target.value)}
+              required
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label htmlFor="reward-start">Count from</label>
+            <input
+              id="reward-start"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              required
+            />
+          </div>
+        </div>
+      )}
+
+      <label htmlFor="reward-text">
+        {type === 'recurring' ? 'Reward per completion' : type === 'every_n' ? `Reward every ${every || 'N'} times` : 'Reward'}
+      </label>
       <input
         id="reward-text"
         type="text"

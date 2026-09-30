@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { subscribeRewards, subscribeRewardPayouts, subscribeHabits } from '../firebase/firestore';
 
-// Per-completion ("recurring") rewards don't have a single unlock state like
+// Per-completion ("recurring") and every-N ("every_n") rewards don't have a single unlock state like
 // milestone rewards do - each qualifying entry mints its own payout record,
 // which stays 'pending' until admin confirms it was actually handed over.
 //
@@ -33,7 +33,7 @@ export function useRewardPayouts(uid, { allUsers = false } = {}) {
   return useMemo(
     () =>
       rewards
-        .filter((r) => r.type === 'recurring')
+        .filter((r) => r.type === 'recurring' || r.type === 'every_n')
         .map((reward) => ({
           reward,
           habit: habitsById.get(reward.condition?.habit_id),
