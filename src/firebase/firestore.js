@@ -18,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import { isSuccess } from '../utils/streaks';
+import { everyNSuccessDates } from '../utils/rewards';
 
 // ---- users ----
 
@@ -224,7 +225,7 @@ export async function deleteReward(rewardId) {
   await deleteDoc(doc(db, 'rewards', rewardId));
 }
 
-// ---- reward payouts (per-completion rewards) ----
+// ---- reward payouts (per-completion and every-N rewards) ----
 
 export function subscribeRewardPayouts(ownerUid, callback) {
   const q = ownerUid
@@ -245,38 +246,97 @@ export async function markPayoutPaid(payoutId) {
 // payout ledger with hundreds of "pending" rewards.
 export async function syncRewardPayoutsForEntry(ownerUid, habit, date, value) {
   const rewardsSnap = await getDocs(
-    query(collection(db, 'rewards'), where('owner_uid', '==', ownerUid), where('type', '==', 'recurring')),
+    query(
+      collection(db, 'rewards'),
+      where('owner_uid', '==', ownerUid),
+      where('type', 'in', ['recurring', 'every_n']),
+    ),
   );
   const rewards = rewardsSnap.docs
     .map((d) => ({ id: d.id, ...d.data() }))
     .filter((r) => r.condition?.habit_id === habit.id);
   if (!rewards.length) return;
 
-  const success = isSuccess(habit, { value });
   await Promise.all(
-    rewards.map(async (reward) => {
-      const ref = doc(db, 'reward_payouts', `${reward.id}_${date}`);
-      const snap = await getDoc(ref);
-      if (success) {
-        if (!snap.exists()) {
-          await setDoc(ref, {
-            reward_id: reward.id,
-            habit_id: habit.id,
-            owner_uid: ownerUid,
-            date,
-            name: reward.name,
-            reward_text: reward.reward_text,
-            status: 'pending',
-            createdAt: serverTimestamp(),
-          });
-        }
-      } else if (snap.exists() && snap.data().status === 'pending') {
-        // Unchecking right after a mis-tap shouldn't leave a stray payout -
-        // but once it's marked paid it's a done deal, so leave it alone.
-        await deleteDoc(ref);
-      }
-    }),
+    rewards.map((reward) =>
+      reward.type === 'every_n'
+        ? syncEveryNPayouts(ownerUid, habit, reward, date, value)
+        : syncPerCompletionPayout(ownerUid, habit, reward, date, value),
+    ),
   );
+}
+
+async function syncPerCompletionPayout(ownerUid, habit, reward, date, value) {
+  const ref = doc(db, 'reward_payouts', `${reward.id}_${date}`);
+  const snap = await getDoc(ref);
+  if (isSuccess(habit, { value })) {
+    if (!snap.exists()) {
+      await setDoc(ref, {
+        reward_id: reward.id,
+        habit_id: habit.id,
+        owner_uid: ownerUid,
+        date,
+        name: reward.name,
+        reward_text: reward.reward_text,
+        status: 'pending',
+        createdAt: serverTimestamp(),
+      });
+    }
+  } else if (snap.exists() && snap.data().status === 'pending') {
+    // Unchecking right after a mis-tap shouldn't leave a stray payout -
+    // but once it's marked paid it's a done deal, so leave it alone.
+    await deleteDoc(ref);
+  }
+}
+
+// One payout per full block of N successes since the reward's start date
+// (30th read -> payout #1, 60th -> #2, ...). Recounts from the entries so
+// a mis-tap that drops the count back under a threshold removes the
+// still-pending payout it minted.
+async function syncEveryNPayouts(ownerUid, habit, reward, date, value) {
+  const every = Number(reward.condition?.every) || 0;
+  if (every < 1) return;
+
+  const entriesSnap = await getDocs(
+    query(collection(db, 'entries'), where('habit_id', '==', habit.id), where('user_id', '==', ownerUid)),
+  );
+  // Overlay the entry just written/deleted in case the read raced it.
+  const entries = entriesSnap.docs.map((d) => d.data()).filter((e) => e.date !== date);
+  if (value !== null && value !== undefined) entries.push({ habit_id: habit.id, date, value });
+
+  const dates = everyNSuccessDates(reward, habit, entries);
+  const earned = Math.floor(dates.length / every);
+
+  const payoutsSnap = await getDocs(
+    query(collection(db, 'reward_payouts'), where('owner_uid', '==', ownerUid), where('reward_id', '==', reward.id)),
+  );
+  const existing = new Map(payoutsSnap.docs.map((d) => [d.id, d.data()]));
+
+  const writes = [];
+  for (let i = 1; i <= earned; i += 1) {
+    const id = `${reward.id}_n${i}`;
+    if (!existing.has(id)) {
+      writes.push(
+        setDoc(doc(db, 'reward_payouts', id), {
+          reward_id: reward.id,
+          habit_id: habit.id,
+          owner_uid: ownerUid,
+          date: dates[i * every - 1],
+          cycle: i,
+          name: reward.name,
+          reward_text: reward.reward_text,
+          status: 'pending',
+          createdAt: serverTimestamp(),
+        }),
+      );
+    }
+  }
+  for (const [id, payout] of existing) {
+    if (payout.cycle > earned && payout.status === 'pending') {
+      writes.push(deleteDoc(doc(db, 'reward_payouts', id)));
+    }
+  }
+  await Promise.all(writes);
 }
 
 export { orderBy };
