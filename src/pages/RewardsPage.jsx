@@ -4,11 +4,20 @@ import { useViewedUser } from '../contexts/ViewedUserContext';
 import { useUnlockedRewards } from '../hooks/useUnlockedRewards';
 import { useRewardPayouts } from '../hooks/useRewardPayouts';
 import { createReward, updateReward, deleteReward, markPayoutPaid, markMilestoneFulfilled } from '../firebase/firestore';
-import RewardCard from '../components/rewards/RewardCard';
-import RecurringRewardCard from '../components/rewards/RecurringRewardCard';
+import RewardRow from '../components/rewards/RewardRow';
 import RewardForm from '../components/rewards/RewardForm';
 import RewardNotifications from '../components/rewards/RewardNotifications';
 import Modal from '../components/common/Modal';
+
+// Rewards tab groups each set-up reward by where it stands right now.
+// "Not started" covers both never-touched rewards and every-N / per-completion
+// ones whose count just restarted after being met.
+const STAGES = [
+  { id: 'reached', label: 'Reached - to fulfill', color: 'var(--accent)' },
+  { id: 'progress', label: 'In progress', color: 'var(--warning)' },
+  { id: 'pending', label: 'Not started', color: 'var(--text-dim)' },
+  { id: 'done', label: 'Done', color: 'var(--text-faint)' },
+];
 
 const TABS = [
   { id: 'notifications', label: 'Notifications' },
@@ -28,7 +37,6 @@ export default function RewardsPage() {
   const [tab, setTab] = useState('notifications');
 
   const usersById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
-  const ownerName = (uid) => (isAdmin ? usersById.get(uid)?.name : null);
 
   // Rewards tab = what's been set up; Notifications tab = every time one of
   // those objectives was actually met, one line each, to fulfill or fulfilled.
@@ -66,6 +74,45 @@ export default function RewardsPage() {
     // Newest first; milestones carry no earned date, so they float to the top.
     return [...fromPayouts, ...fromMilestones].sort((a, b) => (b.date || '9999').localeCompare(a.date || '9999'));
   }, [recurringRewards, rewards, usersById, isAdmin]);
+  const rewardGroups = useMemo(() => {
+    const nameOf = (uid) => (isAdmin ? usersById.get(uid)?.name : null);
+    const groups = { reached: [], progress: [], pending: [], done: [] };
+
+    for (const { reward, habit, current, target, status } of rewards) {
+      const within = reward.condition?.within_days;
+      groups[{ unlocked: 'reached', in_progress: 'progress', locked: 'pending', fulfilled: 'done' }[status]].push({
+        reward,
+        habitName: habit?.name,
+        ownerName: nameOf(reward.owner_uid),
+        summary: `${reward.reward_text} at ${target}${within ? ` in ${within} days` : ''}`,
+        current,
+        target,
+        toFulfill: 0,
+        done: status === 'fulfilled',
+      });
+    }
+
+    for (const { reward, habit, payouts, progress } of recurringRewards) {
+      const every = progress?.every || 1;
+      const toFulfill = payouts.filter((p) => p.status === 'pending').length;
+      const met = payouts.length ? ` · met ${payouts.length}×` : '';
+      groups[progress && progress.towardNext > 0 ? 'progress' : 'pending'].push({
+        reward,
+        habitName: habit?.name,
+        ownerName: nameOf(reward.owner_uid),
+        summary: `${reward.reward_text} ${every > 1 ? `every ${every}` : 'each time'}${met}`,
+        current: every > 1 ? progress.towardNext : 0,
+        target: every > 1 ? every : 0,
+        toFulfill,
+      });
+    }
+
+    for (const list of Object.values(groups)) {
+      list.sort((a, b) => b.current / (b.target || 1) - a.current / (a.target || 1));
+    }
+    return groups;
+  }, [rewards, recurringRewards, usersById, isAdmin]);
+
   const toFulfillCount = notifications.filter((n) => n.status !== 'fulfilled').length;
 
   async function handleSave(data) {
@@ -101,7 +148,7 @@ export default function RewardsPage() {
         )}
       </div>
 
-      <div className="segmented" style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -120,42 +167,34 @@ export default function RewardsPage() {
       ) : rewards.length === 0 && recurringRewards.length === 0 ? (
         <div className="empty-state">No rewards set up yet.</div>
       ) : (
-        <>
-          {rewards
-            .sort((a, b) => b.current / (b.target || 1) - a.current / (a.target || 1))
-            .map(({ reward, habit, current, target, status }) => (
-              <RewardCard
-                key={reward.id}
-                reward={{ ...reward, status }}
-                habitName={habit?.name}
-                ownerName={ownerName(reward.owner_uid)}
-                current={current}
-                target={target}
+        STAGES.filter((st) => rewardGroups[st.id].length).map((st) => (
+          <div key={st.id} className="card" style={{ padding: '6px 12px 2px', marginBottom: 12 }}>
+            <p
+              style={{
+                margin: '2px 0 6px',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+                color: st.color,
+              }}
+            >
+              {st.label} ({rewardGroups[st.id].length})
+            </p>
+            {rewardGroups[st.id].map((item) => (
+              <RewardRow
+                key={item.reward.id}
+                item={item}
                 isAdmin={isAdmin}
                 onEdit={() => {
-                  setEditing(reward);
+                  setEditing(item.reward);
                   setShowForm(true);
                 }}
-                onDelete={() => handleDelete(reward.id)}
+                onDelete={() => handleDelete(item.reward.id)}
               />
             ))}
-
-          {recurringRewards.map(({ reward, habit, payouts }) => (
-            <RecurringRewardCard
-              key={reward.id}
-              reward={reward}
-              habit={habit}
-              ownerName={ownerName(reward.owner_uid)}
-              payouts={payouts}
-              isAdmin={isAdmin}
-              onEdit={() => {
-                setEditing(reward);
-                setShowForm(true);
-              }}
-              onDelete={() => handleDelete(reward.id)}
-            />
-          ))}
-        </>
+          </div>
+        ))
       )}
 
       {showForm && (
