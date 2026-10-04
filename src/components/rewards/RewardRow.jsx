@@ -5,7 +5,7 @@ import { useState } from 'react';
 // 8-10 of them; each time one is met shows up on the Notifications tab.
 export default function RewardRow({ item, isAdmin, onEdit, onDelete }) {
   const [open, setOpen] = useState(false);
-  const { reward, habitName, ownerName, summary, current, target, toFulfill, done } = item;
+  const { reward, habitName, ownerName, summary, current, target, toFulfill } = item;
   const pct = target > 0 ? Math.min(100, (current / target) * 100) : 0;
 
   return (
@@ -65,7 +65,7 @@ export default function RewardRow({ item, isAdmin, onEdit, onDelete }) {
         </div>
         {target > 0 && (
           <div style={{ height: 3, borderRadius: 2, background: 'var(--bg-elevated)', marginTop: 5, overflow: 'hidden' }}>
-            <div style={{ width: `${pct}%`, height: '100%', background: done ? 'var(--text-faint)' : 'var(--accent)' }} />
+            <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent)' }} />
           </div>
         )}
       </button>

@@ -18,7 +18,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import { isSuccess } from '../utils/streaks';
-import { everyNSuccessDates } from '../utils/rewards';
+import { everyNSuccessDates, milestoneFulfilledCount } from '../utils/rewards';
 
 // ---- users ----
 
@@ -221,10 +221,16 @@ export async function updateReward(rewardId, data) {
   await updateDoc(doc(db, 'rewards', rewardId), data);
 }
 
-// Milestones are met once, so "fulfilled" lives on the reward itself rather
-// than on a payout record.
-export async function markMilestoneFulfilled(rewardId) {
-  await updateDoc(doc(db, 'rewards', rewardId), { status: 'fulfilled', fulfilledAt: serverTimestamp() });
+// Milestones restart after each round, so fulfilling one bumps the round
+// counter on the reward itself (see milestoneRound) and logs the date - one
+// entry per Notifications line.
+export async function markMilestoneFulfilled(reward) {
+  const count = milestoneFulfilledCount(reward);
+  await updateDoc(doc(db, 'rewards', reward.id), {
+    fulfilled_count: count + 1,
+    fulfilled_dates: [...(reward.fulfilled_dates || []), new Date().toISOString()],
+    status: 'active',
+  });
 }
 
 export async function deleteReward(rewardId) {

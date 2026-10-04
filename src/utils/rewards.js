@@ -25,11 +25,21 @@ export function computeRewardProgress(reward, habit, entries) {
   return { current, target };
 }
 
-export function deriveRewardStatus(reward, current, target) {
-  if (reward.status === 'fulfilled') return 'fulfilled';
-  if (target > 0 && current >= target) return 'unlocked';
-  if (current > 0) return 'in_progress';
-  return 'locked';
+// Milestones repeat: once reached and fulfilled, the count restarts and
+// anything over the target carries into the next round (20 done on a target
+// of 15, fulfilled once -> 5/15 toward the next). fulfilled_count is how many
+// rounds were handed over; older rewards only have status: 'fulfilled'.
+export function milestoneFulfilledCount(reward) {
+  return reward.fulfilled_count ?? (reward.status === 'fulfilled' ? 1 : 0);
+}
+
+export function milestoneRound(reward, current, target) {
+  const fulfilledCount = milestoneFulfilledCount(reward);
+  const remaining = Math.max(0, current - fulfilledCount * target);
+  let status = 'locked';
+  if (target > 0 && remaining >= target) status = 'unlocked';
+  else if (remaining > 0) status = 'in_progress';
+  return { fulfilledCount, toward: Math.min(remaining, target), status };
 }
 
 // "Every N" rewards: reward.condition: { habit_id, every, start_date }.

@@ -10,13 +10,12 @@ import RewardNotifications from '../components/rewards/RewardNotifications';
 import Modal from '../components/common/Modal';
 
 // Rewards tab groups each set-up reward by where it stands right now.
-// "Not started" covers both never-touched rewards and every-N / per-completion
-// ones whose count just restarted after being met.
+// Every type restarts after being met, so "Not started" covers both
+// never-touched rewards and ones whose count just restarted.
 const STAGES = [
   { id: 'reached', label: 'Reached - to fulfill', color: 'var(--accent)' },
   { id: 'progress', label: 'In progress', color: 'var(--warning)' },
   { id: 'pending', label: 'Not started', color: 'var(--text-dim)' },
-  { id: 'done', label: 'Done', color: 'var(--text-faint)' },
 ];
 
 const TABS = [
@@ -40,8 +39,8 @@ export default function RewardsPage() {
 
   // Rewards tab = what's been set up; Notifications tab = every time one of
   // those objectives was actually met, one line each, to fulfill or fulfilled.
-  // A per-completion / every-N payout is its own line; a milestone reward is
-  // met at most once, so it contributes a single line once unlocked.
+  // A per-completion / every-N payout is its own line; a milestone gets one
+  // line per round reached.
   const notifications = useMemo(() => {
     const nameOf = (uid) => (isAdmin ? usersById.get(uid)?.name : null);
     const fromPayouts = recurringRewards.flatMap(({ reward, habit, payouts }) =>
@@ -58,37 +57,50 @@ export default function RewardsPage() {
         fulfilledAt: p.paidAt,
       })),
     );
-    const fromMilestones = rewards
-      .filter((r) => r.status === 'unlocked' || r.status === 'fulfilled')
-      .map(({ reward, habit, status }) => ({
-        id: reward.id,
+    // Milestones restart after each round: one fulfilled line per round
+    // already handed over, plus a to-fulfill line while the current round
+    // is reached.
+    const fromMilestones = rewards.flatMap(({ reward, habit, status, fulfilledCount }) => {
+      const base = {
         kind: 'milestone',
+        reward,
         date: null,
         rewardName: reward.name,
         rewardText: reward.reward_text,
         habitName: habit?.name,
         ownerName: nameOf(reward.owner_uid),
-        status: status === 'fulfilled' ? 'fulfilled' : 'to_fulfill',
-        fulfilledAt: reward.fulfilledAt,
+      };
+      const dates = reward.fulfilled_dates || [];
+      const lines = Array.from({ length: fulfilledCount }, (_, i) => ({
+        ...base,
+        id: `${reward.id}_${i + 1}`,
+        cycle: fulfilledCount > 1 || status === 'unlocked' ? i + 1 : null,
+        status: 'fulfilled',
+        fulfilledAt: dates[i] || (i === 0 ? reward.fulfilledAt : null),
       }));
+      if (status === 'unlocked') {
+        lines.push({ ...base, id: `${reward.id}_${fulfilledCount + 1}`, cycle: fulfilledCount ? fulfilledCount + 1 : null, status: 'to_fulfill' });
+      }
+      return lines;
+    });
     // Newest first; milestones carry no earned date, so they float to the top.
     return [...fromPayouts, ...fromMilestones].sort((a, b) => (b.date || '9999').localeCompare(a.date || '9999'));
   }, [recurringRewards, rewards, usersById, isAdmin]);
   const rewardGroups = useMemo(() => {
     const nameOf = (uid) => (isAdmin ? usersById.get(uid)?.name : null);
-    const groups = { reached: [], progress: [], pending: [], done: [] };
+    const groups = { reached: [], progress: [], pending: [] };
 
-    for (const { reward, habit, current, target, status } of rewards) {
+    for (const { reward, habit, current, target, status, fulfilledCount } of rewards) {
       const within = reward.condition?.within_days;
-      groups[{ unlocked: 'reached', in_progress: 'progress', locked: 'pending', fulfilled: 'done' }[status]].push({
+      const met = fulfilledCount ? ` · met ${fulfilledCount}×` : '';
+      groups[{ unlocked: 'reached', in_progress: 'progress', locked: 'pending' }[status]].push({
         reward,
         habitName: habit?.name,
         ownerName: nameOf(reward.owner_uid),
-        summary: `${reward.reward_text} at ${target}${within ? ` in ${within} days` : ''}`,
+        summary: `${reward.reward_text} at ${target}${within ? ` in ${within} days` : ''}${met}`,
         current,
         target,
-        toFulfill: 0,
-        done: status === 'fulfilled',
+        toFulfill: status === 'unlocked' ? 1 : 0,
       });
     }
 
@@ -123,7 +135,7 @@ export default function RewardsPage() {
   }
 
   async function handleFulfill(item) {
-    if (item.kind === 'milestone') await markMilestoneFulfilled(item.id);
+    if (item.kind === 'milestone') await markMilestoneFulfilled(item.reward);
     else await markPayoutPaid(item.id);
   }
 
