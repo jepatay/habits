@@ -4,8 +4,9 @@ function formatDate(dateKey) {
   return parseDateKey(dateKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+// Firestore Timestamp (payouts' paidAt) or ISO string (milestone rounds).
 function formatTimestamp(ts) {
-  const d = ts?.toDate?.();
+  const d = ts?.toDate?.() ?? (typeof ts === 'string' ? new Date(ts) : null);
   return d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null;
 }
 

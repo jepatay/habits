@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { subscribeRewards, subscribeHabits, subscribeEntriesForUserInRange, subscribeEntriesInRange } from '../firebase/firestore';
-import { computeRewardProgress, deriveRewardStatus } from '../utils/rewards';
+import { computeRewardProgress, milestoneRound } from '../utils/rewards';
 import { addDays, todayKey } from '../utils/dates';
 
 // A reward's within_days (e.g. 365) bounds how far back its progress can
@@ -57,13 +57,9 @@ export function useUnlockedRewards(uid, { allUsers = false } = {}) {
         .map((reward) => {
           const habit = habitsById.get(reward.condition?.habit_id);
           const { current, target } = computeRewardProgress(reward, habit, entries);
-          return {
-            reward,
-            habit,
-            current,
-            target,
-            status: deriveRewardStatus(reward, current, target),
-          };
+          const { fulfilledCount, toward, status } = milestoneRound(reward, current, target);
+          // current is progress in the current round, not the all-time total.
+          return { reward, habit, current: toward, target, status, fulfilledCount };
         }),
     [rewards, habitsById, entries],
   );
