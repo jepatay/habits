@@ -11,8 +11,10 @@ React + Vite and Firebase (Auth + Firestore + Cloud Functions).
 - **Yes/No and Measurable habits**, including "negative" habits (things to avoid)
 - **Daily grid** (habit rows x date columns), per-habit detail view with score/streak charts, calendar heatmap
   and weekday breakdown
-- **Reward engine** - admin defines conditions (e.g. "300 reps within 365 days"), progress is computed live and
-  surfaces as an in-app banner when unlocked
+- **Reward engine** - admin defines conditions (e.g. "300 reps within 365 days", "every time she mows"),
+  progress is computed live. The Rewards page has two tabs: **Rewards** (what's set up, with progress toward the
+  next time it's met) and **Notifications** (one line per time an objective was met, each *to fulfill* or
+  *fulfilled*; admins also get a push for each new one). A newly unlocked milestone also shows an in-app banner
 - **PWA** - installable, with Web Push (Firebase Cloud Messaging) reminders and a scheduled Cloud Function email
   fallback for browsers without push support
 - **Offline viewing** - Firestore's persistent local cache lets you review history with no connection (no

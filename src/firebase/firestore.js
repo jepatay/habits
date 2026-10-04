@@ -221,6 +221,12 @@ export async function updateReward(rewardId, data) {
   await updateDoc(doc(db, 'rewards', rewardId), data);
 }
 
+// Milestones are met once, so "fulfilled" lives on the reward itself rather
+// than on a payout record.
+export async function markMilestoneFulfilled(rewardId) {
+  await updateDoc(doc(db, 'rewards', rewardId), { status: 'fulfilled', fulfilledAt: serverTimestamp() });
+}
+
 export async function deleteReward(rewardId) {
   await deleteDoc(doc(db, 'rewards', rewardId));
 }
