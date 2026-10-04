@@ -23,10 +23,10 @@ function NotificationRow({ item, isAdmin, onFulfill }) {
         justifyContent: 'space-between',
         alignItems: 'center',
         gap: 8,
-        padding: '10px 12px',
+        padding: '6px 10px',
         borderRadius: 8,
         background: 'var(--bg-elevated)',
-        marginBottom: 8,
+        marginBottom: 4,
         opacity: done ? 0.7 : 1,
       }}
     >
