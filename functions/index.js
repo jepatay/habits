@@ -1,5 +1,6 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
@@ -93,4 +94,32 @@ exports.sendTestNotification = onCall(async (request) => {
   }
 
   return { successCount: response.successCount, failureCount: response.failureCount };
+});
+
+// Every time an objective is met (a per-completion or every-N reward), the
+// client writes one reward_payouts doc - that's one line on the Rewards >
+// Notifications tab. Push it to every admin so they know there's something
+// to fulfill without having to open the app.
+exports.rewardEarnedNotification = onDocumentCreated('reward_payouts/{payoutId}', async (event) => {
+  const payout = event.data?.data();
+  if (!payout) return;
+
+  const [ownerDoc, adminsSnap] = await Promise.all([
+    db.collection('users').doc(payout.owner_uid).get(),
+    db.collection('users').where('role', '==', 'admin').get(),
+  ]);
+  const tokens = adminsSnap.docs.flatMap((d) => d.data().pushTokens || []);
+  if (!tokens.length) return;
+
+  const who = ownerDoc.data()?.name || 'Someone';
+  const cycle = payout.cycle ? ` #${payout.cycle}` : '';
+  await getMessaging()
+    .sendEachForMulticast({
+      tokens,
+      notification: {
+        title: `Reward to fulfill: ${payout.name}${cycle}`,
+        body: `${who} met the objective on ${payout.date} - ${payout.reward_text}`,
+      },
+    })
+    .catch(() => null);
 });

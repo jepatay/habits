@@ -58,8 +58,8 @@ export default function RewardForm({ reward, users, defaultOwnerUid, onSave, onC
       <label htmlFor="reward-type">Type</label>
       <select id="reward-type" value={type} onChange={(e) => setType(e.target.value)}>
         <option value="milestone">Milestone - unlock once after reaching a target</option>
-        <option value="recurring">Per completion - pay out every time she does it</option>
-        <option value="every_n">Every N times - pay out each time she hits another N</option>
+        <option value="recurring">Per completion - notify every time she does it</option>
+        <option value="every_n">Every N times - notify each time she hits another N</option>
       </select>
 
       <label htmlFor="reward-name">Name</label>

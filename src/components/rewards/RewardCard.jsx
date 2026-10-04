@@ -1,7 +1,7 @@
 const STATUS_LABEL = {
   locked: 'Locked',
   in_progress: 'In progress',
-  unlocked: 'Unlocked!',
+  unlocked: 'Reached - to fulfill',
   fulfilled: 'Fulfilled',
 };
 
@@ -12,7 +12,9 @@ const STATUS_COLOR = {
   fulfilled: 'var(--text-dim)',
 };
 
-export default function RewardCard({ reward, habitName, ownerName, current, target, isAdmin, onEdit, onFulfill, onDelete }) {
+// The reward as set up (target + live progress). Fulfilling it once reached
+// happens from the Notifications tab, not here.
+export default function RewardCard({ reward, habitName, ownerName, current, target, isAdmin, onEdit, onDelete }) {
   const pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
 
   return (
@@ -59,11 +61,6 @@ export default function RewardCard({ reward, habitName, ownerName, current, targ
           <button className="btn secondary" style={{ fontSize: '0.8rem', padding: '6px 10px' }} onClick={onEdit}>
             Edit
           </button>
-          {reward.status === 'unlocked' && (
-            <button className="btn" style={{ fontSize: '0.8rem', padding: '6px 10px' }} onClick={onFulfill}>
-              Mark fulfilled
-            </button>
-          )}
           <button className="btn danger" style={{ fontSize: '0.8rem', padding: '6px 10px' }} onClick={onDelete}>
             Delete
           </button>
